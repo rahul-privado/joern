@@ -301,7 +301,7 @@ class AstCreator(filename: String, javaParserAst: CompilationUnit, global: Globa
       case None =>
         globalNamespaceBlock()
     }
-    Ast(namespaceBlock.filename(absolutePath(filename)).order(1))
+    Ast(namespaceBlock.filename(filename).order(1))
   }
 
   private def constructorSignature(

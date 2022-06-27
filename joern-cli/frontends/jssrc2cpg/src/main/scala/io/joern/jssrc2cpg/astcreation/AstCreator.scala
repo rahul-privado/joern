@@ -58,9 +58,6 @@ class AstCreator(
   protected val (positionToLineNumberMapping, positionToFirstPositionInLineMapping) =
     positionLookupTables(parserResult.fileContent)
 
-  // we want to keep it local, just like the old js2cpg did
-  override def absolutePath(filename: String): String = filename
-
   override def createAst(): DiffGraphBuilder = {
     val fileNode       = NewFile().name(parserResult.filename).order(1)
     val namespaceBlock = globalNamespaceBlock()

@@ -24,7 +24,7 @@ abstract class AstCreatorBase(filename: String) {
   /** Create a global namespace block for the given `filename`
     */
   def globalNamespaceBlock(): NewNamespaceBlock = {
-    val absPath  = absolutePath(filename)
+    val absPath  = filename
     val name     = NamespaceTraversal.globalNamespaceName
     val fullName = MetaDataPass.getGlobalNamespaceBlockFullName(Some(absPath))
     NewNamespaceBlock()
@@ -156,10 +156,5 @@ abstract class AstCreatorBase(filename: String) {
       case None => node
     }
   }
-
-  /** Absolute path for the given file name
-    */
-  def absolutePath(filename: String): String =
-    better.files.File(filename).path.toAbsolutePath.normalize().toString
 
 }

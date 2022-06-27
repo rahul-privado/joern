@@ -47,9 +47,7 @@ class AstCreator(val filename: String, val config: Config, val global: CGlobal, 
   private def astForTranslationUnit(iASTTranslationUnit: IASTTranslationUnit): Ast = {
     val namespaceBlock = globalNamespaceBlock()
     methodAstParentStack.push(namespaceBlock)
-    val ast = Ast(namespaceBlock).withChild(
-      astInFakeMethod(namespaceBlock.fullName, absolutePath(filename), iASTTranslationUnit)
-    )
+    val ast = Ast(namespaceBlock).withChild(astInFakeMethod(namespaceBlock.fullName, filename, iASTTranslationUnit))
     if (config.includeComments) {
       val commentsAsts = cdtAst.getComments.map(comment => astForComment(comment)).toIndexedSeq
       ast.withChildren(commentsAsts)
