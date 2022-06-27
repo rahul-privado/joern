@@ -18,7 +18,7 @@ object CodeDumper {
 
   /** Dump string representation of code at given `location`.
     */
-  def dump(location: NewLocation, language: Option[String], highlight: Boolean): String = {
+  def dump(location: NewLocation, language: Option[String], root: Option[String], highlight: Boolean): String = {
     val filename = location.filename
 
     if (location.node.isEmpty) {
