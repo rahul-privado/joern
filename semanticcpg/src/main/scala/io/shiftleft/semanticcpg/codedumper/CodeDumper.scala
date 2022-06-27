@@ -1,5 +1,6 @@
 package io.shiftleft.semanticcpg.codedumper
 
+import better.files.File
 import io.shiftleft.codepropertygraph.Cpg
 import io.shiftleft.codepropertygraph.generated.Languages
 import io.shiftleft.codepropertygraph.generated.nodes.{Expression, Local, Method, NewLocation, StoredNode}
@@ -19,7 +20,7 @@ object CodeDumper {
   /** Dump string representation of code at given `location`.
     */
   def dump(location: NewLocation, language: Option[String], root: Option[String], highlight: Boolean): String = {
-    val filename = location.filename
+    val filename = filenameFromLocationAndRoot(location, root)
 
     if (location.node.isEmpty) {
       logger.warn("Empty `location.node` encountered")
@@ -58,6 +59,14 @@ object CodeDumper {
       }
       .flatten
       .getOrElse("")
+  }
+
+  private def filenameFromLocationAndRoot(location: NewLocation, root: Option[String]): String = {
+    if (File(location.filename).path.isAbsolute || root.isEmpty) {
+      location.filename
+    } else {
+      Paths.get(root.get, location.filename).toAbsolutePath.toString
+    }
   }
 
   /** For a given `filename`, `startLine`, and `endLine`, return the corresponding code by reading it from the file. If
