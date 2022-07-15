@@ -8,14 +8,14 @@ import io.joern.dataflowengineoss.semanticsloader.Semantics
 import io.joern.macros.QueryMacros._
 import io.shiftleft.semanticcpg.language._
 
-object AndroidUnprotectedAppParts extends QueryBundle {
+object UnprotectedAppParts extends QueryBundle {
   implicit val engineContext: EngineContext = EngineContext(Semantics.empty)
   implicit val resolver: ICallResolver      = NoResolve
 
   @q
   def intentRedirection(): Query =
     Query.make(
-      name = "intent-redirection",
+      name = "android-intent-redirection",
       author = Crew.claudiu,
       title = "Intent redirected without validation",
       description = "-",

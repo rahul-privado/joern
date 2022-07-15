@@ -5,12 +5,12 @@ import io.joern.console._
 import io.joern.macros.QueryMacros._
 import io.shiftleft.semanticcpg.language._
 
-object AndroidMisconfigurations extends QueryBundle {
+object Misconfigurations extends QueryBundle {
 
   @q
   def manifestXmlDebuggableEnabled(): Query =
     Query.make(
-      name = "manifest-debuggable-enabled",
+      name = "android-manifest-debuggable-enabled",
       author = Crew.claudiu,
       title = "Backups enabled in Android Manifest File",
       description = """

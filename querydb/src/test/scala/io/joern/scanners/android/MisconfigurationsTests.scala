@@ -4,9 +4,9 @@ import io.joern.console.scan._
 import io.shiftleft.codepropertygraph.generated.nodes.ConfigFile
 import io.joern.suites.AndroidQueryTestSuite
 
-class AndroidMisconfigurationsTests extends AndroidQueryTestSuite {
+class MisconfigurationsTests extends AndroidQueryTestSuite {
 
-  override def queryBundle = AndroidMisconfigurations
+  override def queryBundle = Misconfigurations
 
   private def makeAndroidXml(allowBackup: Boolean): String = {
     s"""|<?xml version="1.0" encoding="utf-8"?>
@@ -66,7 +66,7 @@ class AndroidMisconfigurationsTests extends AndroidQueryTestSuite {
         | <!ELEMENT lolz (#PCDATA)>
         | <!ENTITY lol1 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
         | <!ENTITY lol2 "&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;">
-        | <UNFINISHED_BILLION_LAUGS
+        | <UNFINISHED_BILLION_LAUGHS
         |<lolz>&lol2;</lolz>
         |""".stripMargin
     val cpgNoManifest = cpg.moreCode(invalidXml, "AndroidManifest.xml")
