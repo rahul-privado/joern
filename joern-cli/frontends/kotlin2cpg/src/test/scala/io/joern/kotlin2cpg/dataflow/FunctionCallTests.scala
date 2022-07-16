@@ -18,4 +18,22 @@ class FunctionCallTests extends KotlinCode2CpgFixture(withOssDataflow = true) {
         Set(List(("f1(p)", Some(1)), ("System.out.println(p)", Some(1))))
     }
   }
+
+  "CPG for code with call to Java's `Runtime.getRuntime().exec`" should {
+    val cpg = code("""
+        |fun f1(p: String) { Runtime.getRuntime().exec(p) }
+        |fun main() { f1("ls") }
+        |""".stripMargin)
+
+    "should find a flow from method parameter to the call's argument" in {
+      val source = cpg.method.name("f1").parameter
+      val sink   = cpg.method.name("exec").callIn.argument
+      val flows  = sink.reachableByFlows(source)
+      flows.map(flowToResultPairs).toSet shouldBe
+        Set(
+          List(("f1(p)", Some(2)), ("Runtime.getRuntime().exec(p)", Some(2))),
+          List(("f1(p)", Some(2)), ("Runtime.getRuntime().exec(p)", Some(2)), ("Runtime.getRuntime()", Some(2)))
+        )
+    }
+  }
 }
