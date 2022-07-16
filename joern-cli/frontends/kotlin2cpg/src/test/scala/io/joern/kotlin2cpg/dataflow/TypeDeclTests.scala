@@ -65,4 +65,23 @@ class TypeDeclTests extends KotlinCode2CpgFixture(withOssDataflow = true) {
         Set(List(("f1(p)", Some(3)), ("aClass.itsFn(p)", Some(5)), ("itsFn(q)", Some(2)), ("println(q)", Some(2))))
     }
   }
+
+  "CPG for code with user-defined class with one extension function" should {
+    val cpg = code("""
+      |class AClass
+      |fun AClass.itsFn(q: String) { println(q) }
+      |fun f1(p: String) {
+      |    val aClass = AClass()
+      |    aClass.itsFn(p)
+      |}
+      |""".stripMargin)
+
+    "should find a flow through the extension function" in {
+      val source = cpg.method.name("f1").parameter
+      val sink   = cpg.method.name("println").callIn.argument
+      val flows  = sink.reachableByFlows(source)
+      flows.map(flowToResultPairs).toSet shouldBe
+        Set(List(("f1(p)", Some(4)), ("aClass.itsFn(p)", Some(6)), ("itsFn(q)", Some(3)), ("println(q)", Some(3))))
+    }
+  }
 }
