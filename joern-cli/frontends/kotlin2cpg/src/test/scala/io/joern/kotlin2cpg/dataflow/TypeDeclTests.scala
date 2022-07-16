@@ -9,10 +9,7 @@ class TypeDeclTests extends KotlinCode2CpgFixture(withOssDataflow = true) {
 
   "CPG for code with user-defined class containing one member defined inline" should {
     val cpg = code("""
-      |class AClass {
-      |    var x: String = "INITIAL"
-      |}
-      |
+      |class AClass { var x: String = "INITIAL" }
       |fun f1(p: String) {
       |    val aClass = AClass()
       |    aClass.x = p
@@ -25,7 +22,7 @@ class TypeDeclTests extends KotlinCode2CpgFixture(withOssDataflow = true) {
       val sink   = cpg.method.name("println").callIn.argument
       val flows  = sink.reachableByFlows(source)
       flows.map(flowToResultPairs).toSet shouldBe
-        Set(List(("f1(p)", Some(6)), ("aClass.x = p", Some(8)), ("println(aClass.x)", Some(9))))
+        Set(List(("f1(p)", Some(3)), ("aClass.x = p", Some(5)), ("println(aClass.x)", Some(6))))
     }
   }
 
