@@ -131,4 +131,42 @@ class TypeDeclTests extends KotlinCode2CpgFixture(withOssDataflow = true) {
         Set(List(("f1(p)", Some(8)), ("AClass(p)", Some(9)), ("<init>(this, x)", Some(3)), ("println(x)", Some(4))))
     }
   }
+
+ // "CPG for code with something" should {
+ //   val cpg = code(
+ //     """
+ //       |class AClass(var x: String) {fun printX() = println(this.x) }
+ //       |fun main() {
+ //       |    val aClass = AClass("AMESSAGE")
+ //       |    aClass.printX()
+ //       |}
+ //       |""".stripMargin)
+
+ //   "should find a flow through " in {
+ //     val source = cpg.method.name("f1").parameter
+ //     val sink = cpg.method.name("println").callIn.argument
+ //     val flows = sink.reachableByFlows(source)
+ //     flows.map(flowToResultPairs).toSet shouldBe
+ //       Set(List(("f1(p)", Some(8)), ("AClass(p)", Some(9)), ("<init>(this, x)", Some(3)), ("println(x)", Some(4))))
+ //   }
+ // }
+
+  //"CPG for code with something" should {
+  //  val cpg = code(
+  //    """
+  //      |class AClass(var x: String) {fun printX() = println(this.x) }
+  //      |fun main() {
+  //      |    val aClass = AClass("AMESSAGE")
+  //      |    aClass.printX()
+  //      |}
+  //      |""".stripMargin)
+
+  //  "should find a flow through " in {
+  //    val source = cpg.method.name("f1").parameter
+  //    val sink = cpg.method.name("println").callIn.argument
+  //    val flows = sink.reachableByFlows(source)
+  //    flows.map(flowToResultPairs).toSet shouldBe
+  //      Set(List(("f1(p)", Some(8)), ("AClass(p)", Some(9)), ("<init>(this, x)", Some(3)), ("println(x)", Some(4))))
+  //  }
+  //}
 }
