@@ -726,10 +726,8 @@ trait KtPsiToAst {
     )
 
     val componentNIdentifierAst = astWithRefEdgeMaybe(componentNIdentifierNode.name, componentNIdentifierNode)
-    val componentNAst = Ast(componentNCallNode)
-      .withChild(componentNIdentifierAst)
-      .withArgEdge(componentNCallNode, componentNIdentifierNode)
-      .withReceiverEdge(componentNCallNode, componentNIdentifierNode)
+    val componentNAst =
+      callAst(componentNCallNode, Seq(), Some(componentNIdentifierAst), withRecvArgEdge = true)
 
     val assignmentCallNode = operatorCallNode(
       Operators.assignment,
@@ -1140,10 +1138,8 @@ trait KtPsiToAst {
       DispatchTypes.DYNAMIC_DISPATCH
     )
 
-    val iteratorAssignmentRhsAst = Ast(iteratorAssignmentRhs)
-      .withChild(Ast(iteratorAssignmentRhsIdentifier))
-      .withArgEdge(iteratorAssignmentRhs, iteratorAssignmentRhsIdentifier)
-      .withReceiverEdge(iteratorAssignmentRhs, iteratorAssignmentRhsIdentifier)
+    val iteratorAssignmentRhsAst =
+      callAst(iteratorAssignmentRhs, Seq(), Some(Ast(iteratorAssignmentRhsIdentifier)), withRecvArgEdge = true)
     val iteratorAssignment =
       operatorCallNode(Operators.assignment, s"$iteratorName = ${iteratorAssignmentRhs.code}", None)
 
@@ -1162,10 +1158,8 @@ trait KtPsiToAst {
       TypeConstants.javaLangBoolean,
       DispatchTypes.DYNAMIC_DISPATCH
     ).argumentIndex(0)
-    val controlStructureConditionAst = Ast(controlStructureCondition)
-      .withChild(Ast(conditionIdentifier))
-      .withArgEdge(controlStructureCondition, conditionIdentifier)
-      .withReceiverEdge(controlStructureCondition, conditionIdentifier)
+    val controlStructureConditionAst =
+      callAst(controlStructureCondition, List(), Some(Ast(conditionIdentifier)), withRecvArgEdge = true)
 
     val loopParameterTypeFullName = registerType(
       typeInfoProvider.typeFullName(expr.getLoopParameter, TypeConstants.any)
@@ -1188,10 +1182,8 @@ trait KtPsiToAst {
       TypeConstants.javaLangObject,
       DispatchTypes.DYNAMIC_DISPATCH
     )
-    val iteratorNextCallAst = Ast(iteratorNextCall)
-      .withChild(iteratorNextIdentifierAst)
-      .withArgEdge(iteratorNextCall, iteratorNextIdentifier)
-      .withReceiverEdge(iteratorNextCall, iteratorNextIdentifier)
+    val iteratorNextCallAst =
+      callAst(iteratorNextCall, Seq(), Some(iteratorNextIdentifierAst), withRecvArgEdge = true)
     val loopParameterNextAssignment =
       operatorCallNode(Operators.assignment, s"$loopParameterName = ${iteratorNextCall.code}", None)
     val loopParameterNextAssignmentAst =
@@ -1247,10 +1239,8 @@ trait KtPsiToAst {
       DispatchTypes.DYNAMIC_DISPATCH
     )
 
-    val iteratorAssignmentRhsAst = Ast(iteratorAssignmentRhs)
-      .withChild(Ast(iteratorAssignmentRhsIdentifier))
-      .withArgEdge(iteratorAssignmentRhs, iteratorAssignmentRhsIdentifier)
-      .withReceiverEdge(iteratorAssignmentRhs, iteratorAssignmentRhsIdentifier)
+    val iteratorAssignmentRhsAst =
+      callAst(iteratorAssignmentRhs, Seq(), Some(Ast(iteratorAssignmentRhsIdentifier)), withRecvArgEdge = true)
 
     val iteratorAssignment =
       operatorCallNode(Operators.assignment, s"$iteratorName = ${iteratorAssignmentRhs.code}", None)
@@ -1269,10 +1259,8 @@ trait KtPsiToAst {
       TypeConstants.javaLangBoolean,
       DispatchTypes.DYNAMIC_DISPATCH
     ).argumentIndex(0)
-    val controlStructureConditionAst = Ast(controlStructureCondition)
-      .withChild(Ast(conditionIdentifier))
-      .withArgEdge(controlStructureCondition, conditionIdentifier)
-      .withReceiverEdge(controlStructureCondition, conditionIdentifier)
+    val controlStructureConditionAst =
+      callAst(controlStructureCondition, List(), Some(Ast(conditionIdentifier)), withRecvArgEdge = true)
 
     val destructuringDeclEntries = expr.getDestructuringDeclaration.getEntries
     val localsForDestructuringVars = destructuringDeclEntries.asScala.map { entry =>
@@ -1302,10 +1290,8 @@ trait KtPsiToAst {
       DispatchTypes.DYNAMIC_DISPATCH
     )
 
-    val iteratorNextCallAst = Ast(iteratorNextCall)
-      .withChild(iteratorNextIdentifierAst)
-      .withArgEdge(iteratorNextCall, iteratorNextIdentifier)
-      .withReceiverEdge(iteratorNextCall, iteratorNextIdentifier)
+    val iteratorNextCallAst =
+      callAst(iteratorNextCall, Seq(), Some(iteratorNextIdentifierAst), withRecvArgEdge = true)
     val tmpParameterNextAssignment    = operatorCallNode(Operators.assignment, s"$tmpName = ${iteratorNextCall.code}")
     val tmpParameterNextAssignmentAst = callAst(tmpParameterNextAssignment, List(tmpIdentifierAst, iteratorNextCallAst))
 
