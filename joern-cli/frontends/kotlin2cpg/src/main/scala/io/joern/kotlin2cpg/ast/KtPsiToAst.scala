@@ -865,12 +865,7 @@ trait KtPsiToAst {
         ),
         argIdx
       )
-    val receiverNode = receiverAst.root.get
-    Ast(node)
-      .withChild(receiverAst)
-      .withArgEdge(node, receiverNode)
-      .withChildren(argAsts)
-      .withArgEdges(node, argAsts.map(_.root.get))
+    callAst(node, argAsts, Some(receiverAst), withRecvArgEdge = true)
   }
 
   private def selectorExpressionArgAsts(
@@ -914,12 +909,7 @@ trait KtPsiToAst {
         ),
         argIdx
       )
-    val receiverNode = receiverAst.root.get
-    Ast(node)
-      .withChild(receiverAst)
-      .withArgEdge(node, receiverNode)
-      .withChildren(argAsts)
-      .withArgEdges(node, argAsts.map(_.root.get))
+    callAst(node, argAsts, Some(receiverAst), withRecvArgEdge = true)
   }
 
   private def astForQualifiedExpressionWithNoAstForReceiver(expr: KtQualifiedExpression, argIdx: Option[Int])(implicit
@@ -940,10 +930,7 @@ trait KtPsiToAst {
       callNode(expr.getText, methodName, fullName, signature, retType, dispatchType, line(expr), column(expr)),
       argIdx
     )
-    Ast(node)
-      .withChild(receiverAst)
-      .withChildren(argAsts)
-      .withArgEdges(node, argAsts.map(_.root.get))
+    callAst(node, List(receiverAst) ++ argAsts)
   }
 
   private def astForQualifiedExpressionWithReceiverEdge(
@@ -1423,10 +1410,7 @@ trait KtPsiToAst {
       line(expr),
       column(expr)
     )
-    val initCallAst = Ast(initCallNode)
-      .withChildren(List(initReceiverAst) ++ argAsts)
-      .withArgEdges(initCallNode, Seq(initReceiverNode) ++ argAsts.flatMap(_.root))
-
+    val initCallAst       = callAst(initCallNode, argAsts, Some(initReceiverAst), withRecvArgEdge = true)
     val lastIdentifier    = identifierNode(tmpName, typeFullName, line(expr), column(expr))
     val lastIdentifierAst = Ast(lastIdentifier)
 
