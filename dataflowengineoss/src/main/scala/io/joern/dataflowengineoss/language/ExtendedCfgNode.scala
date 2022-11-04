@@ -115,10 +115,12 @@ object ExtendedCfgNode {
   def sourceToStartingPoints[NodeType](src: NodeType): List[CfgNode] = {
     src match {
       case lit: Literal =>
-        List(lit) ++ usages(targetsToClassIdentifierPair(literalToInitializedMembers(lit)))
+      List(lit)
+      // List(lit) ++ usages(targetsToClassIdentifierPair(literalToInitializedMembers(lit)))
       case member: Member =>
-        val initializedMember = memberToInitializedMembers(member)
-        usages(targetsToClassIdentifierPair(initializedMember))
+        // val initializedMember = memberToInitializedMembers(member)
+        // usages(targetsToClassIdentifierPair(initializedMember))
+        List()
       case x => List(x).collect { case y: CfgNode => y }
     }
   }
