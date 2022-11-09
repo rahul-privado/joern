@@ -26,19 +26,58 @@ import java.util.concurrent.RecursiveTask
   */
 class SourceToStartingPoints(src: StoredNode) extends RecursiveTask[List[CfgNode]] {
 
+  private val cpg = Cpg(src.graph())
+
   override def compute(): List[CfgNode] =
     src match {
       case lit: Literal =>
-        List(lit) ++ usages(targetsToClassIdentifierPair(literalToInitializedMembers(lit)))
+        val initializedMembers   = literalToInitializedMembers(lit)
+        val classIdentifierPairs = targetsToClassIdentifierPair(initializedMembers)
+        List(lit) ++ usages(classIdentifierPairs)
       case member: Member =>
-        val initializedMember = memberToInitializedMembers(member)
-        usages(targetsToClassIdentifierPair(initializedMember))
+        val initializedMembers   = memberToInitializedMembers(member)
+        val classIdentifierPairs = targetsToClassIdentifierPair(initializedMembers)
+        usages(classIdentifierPairs)
       case x => List(x).collect { case y: CfgNode => y }
     }
 
+  /** For a literal, determine if it is used in the initialization of any member variables. Return list of initialized
+    * members. An initialized member is either an identifier or a field-identifier.
+    */
+  private def literalToInitializedMembers(lit: Literal): List[Expression] = {
+    lit
+      .where(_.method.nameExact(Defines.StaticInitMethodName, Defines.ConstructorMethodName))
+      .inAssignment
+      .target
+      .flatMap {
+        case identifier: Identifier => List(identifier)
+        case call: Call if call.name == Operators.fieldAccess =>
+          call.ast.isFieldIdentifier.l
+        case _ => List[Expression]()
+      }
+      .dedup
+      .l
+  }
+
+  private def memberToInitializedMembers(member: Member): List[Expression] = {
+    member.typeDecl.method
+      .nameExact(Defines.StaticInitMethodName, Defines.ConstructorMethodName)
+      .ast
+      .flatMap { x =>
+        x match {
+          case identifier: Identifier if identifier.name == member.name =>
+            Traversal(identifier).argumentIndex(1).where(_.inAssignment).l
+          case fieldIdentifier: FieldIdentifier if fieldIdentifier.canonicalName == member.head.name =>
+            Traversal(fieldIdentifier).where(_.inAssignment).l
+          case _ => List[Expression]()
+        }
+      }
+      .dedup
+      .l
+  }
+
   private def usages(pairs: List[(TypeDecl, Expression)]): List[CfgNode] = {
     pairs.flatMap { case (typeDecl, expression) =>
-      val cpg = Cpg(typeDecl.graph())
       val usagesInSameClass =
         typeDecl.method
           .whereNot(_.nameExact(Defines.StaticInitMethodName, Defines.ConstructorMethodName))
@@ -71,38 +110,6 @@ class SourceToStartingPoints(src: StoredNode) extends RecursiveTask[List[CfgNode
       }
       usagesInSameClass ++ usagesInOtherClasses
     }
-  }
-
-  /** For a literal, determine if it is used in the initialization of any member variables. Return list of initialized
-    * members. An initialized member is either an identifier or a field-identifier.
-    */
-  private def literalToInitializedMembers(lit: Literal): List[Expression] = {
-    lit.inAssignment
-      .where(_.method.nameExact(Defines.StaticInitMethodName, Defines.ConstructorMethodName))
-      .target
-      .flatMap {
-        case identifier: Identifier => List(identifier)
-        case call: Call if call.name == Operators.fieldAccess =>
-          call.ast.isFieldIdentifier.l
-        case _ => List[Expression]()
-      }
-      .l
-  }
-
-  private def memberToInitializedMembers(member: Member): List[Expression] = {
-    member.typeDecl.method
-      .nameExact(Defines.StaticInitMethodName, Defines.ConstructorMethodName)
-      .ast
-      .flatMap { x =>
-        x match {
-          case identifier: Identifier if identifier.name == member.name =>
-            Traversal(identifier).argumentIndex(1).where(_.inAssignment).l
-          case fieldIdentifier: FieldIdentifier if fieldIdentifier.canonicalName == member.head.name =>
-            Traversal(fieldIdentifier).where(_.inAssignment).l
-          case _ => List[Expression]()
-        }
-      }
-      .l
   }
 
   private def notLeftHandOfAssignment(x: Expression): Boolean = {
