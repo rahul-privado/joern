@@ -16,6 +16,7 @@ import io.shiftleft.codepropertygraph.generated.nodes.{
 }
 import overflowdb.traversal._
 import io.shiftleft.semanticcpg.language._
+import io.shiftleft.semanticcpg.language.operatorextension.allFieldAccessTypes
 
 import java.util.concurrent.RecursiveTask
 
@@ -93,21 +94,27 @@ class SourceToStartingPoints(src: StoredNode) extends RecursiveTask[List[CfgNode
             }
           }
           .headOption
-      val usagesInOtherClasses = cpg.method.flatMap { m =>
-        m.fieldAccess
-          .where(_.argument(1).isIdentifier.typeFullNameExact(typeDecl.fullName))
-          .where { x =>
-            expression match {
-              case identifier: Identifier =>
-                x.argument(2).isFieldIdentifier.canonicalNameExact(identifier.name)
-              case fieldIdentifier: FieldIdentifier =>
-                x.argument(2).isFieldIdentifier.canonicalNameExact(fieldIdentifier.canonicalName)
-              case _ => List()
+
+      val usagesInOtherClasses =
+        cpg.method.flatMap { m =>
+          m._identifierViaContainsOut
+            .argumentIndex(1)
+            .typeFullNameExact(typeDecl.fullName)
+            .inCall
+            .filter(c => allFieldAccessTypes.contains(c.name))
+            .where { x =>
+              expression match {
+                case identifier: Identifier =>
+                  x.argument(2).isFieldIdentifier.canonicalNameExact(identifier.name)
+                case fieldIdentifier: FieldIdentifier =>
+                  x.argument(2).isFieldIdentifier.canonicalNameExact(fieldIdentifier.canonicalName)
+                case _ => List()
+              }
             }
-          }
-          .takeWhile(notLeftHandOfAssignment)
-          .headOption
-      }
+            .takeWhile(notLeftHandOfAssignment)
+            .headOption
+        }
+
       usagesInSameClass ++ usagesInOtherClasses
     }
   }
