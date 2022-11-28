@@ -69,21 +69,6 @@ trait KtPsiToAst {
     Ast(node)
   }
 
-  def astForPackageDeclaration(packageName: String): Ast = {
-    val node =
-      if (packageName == Constants.root)
-        namespaceBlockNode(
-          NamespaceTraversal.globalNamespaceName,
-          NamespaceTraversal.globalNamespaceName,
-          relativizedPath
-        )
-      else {
-        val name = packageName.split("\\.").lastOption.getOrElse("")
-        namespaceBlockNode(name, packageName, relativizedPath)
-      }
-    Ast(node)
-  }
-
   def astsForDeclaration(decl: KtDeclaration)(implicit typeInfoProvider: TypeInfoProvider): Seq[Ast] = {
     decl match {
       case c: KtClass                => astsForClassOrObject(c)
