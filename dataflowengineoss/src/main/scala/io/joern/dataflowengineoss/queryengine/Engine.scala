@@ -45,6 +45,9 @@ class Engine(context: EngineContext) {
 
   private val mainResultTable: ResultTable = newResultTable()
 
+  private val started: mutable.Set[TaskFingerprint] = mutable.Set()
+  private var held: List[ReachableByTask]           = List()
+
   def shutdown(): Unit = {
     executorService.shutdown()
   }
@@ -62,8 +65,17 @@ class Engine(context: EngineContext) {
     val sourcesSet = sources.toSet
     val tasks      = createOneTaskPerSink(sourcesSet, sinks)
     solveTasks(tasks, sourcesSet)
-    val resultsFromTable = deduplicate(extractResultsFromTable(sinks))
-    resultsFromTable
+    val resultsFromTable = extractResultsFromTable(sinks)
+    deduplicate(resultsFromTable ++ completeHeldTasks())
+  }
+
+  private def completeHeldTasks(): List[ReachableByResult] = {
+    held.par.flatMap { heldTask =>
+      mainResultTable
+        .createFromTable(PathElement(heldTask.sink), heldTask.callSiteStack, heldTask.initialPath)
+        .toList
+        .flatMap(_.toList)
+    }.toList
   }
 
   private def extractResultsFromTable(sinks: List[CfgNode]): Vector[ReachableByResult] = {
@@ -129,8 +141,14 @@ class Engine(context: EngineContext) {
   }
 
   private def submitTasks(tasks: Vector[ReachableByTask], sources: Set[CfgNode]) = {
+    val (tasksToHold, tasksToSolve) = tasks.par.partition { t =>
+      val fingerprint = TaskFingerprint(t.sink, t.callSiteStack)
+      started.contains(fingerprint)
+    }
+    held ++= tasksToHold
     numberOfTasksRunning += tasks.size
-    tasks.foreach(t => completionService.submit(new TaskSolver(t, context, sources)))
+    started ++= tasksToSolve.map(x => TaskFingerprint(x.sink, x.callSiteStack))
+    tasksToSolve.foreach(t => completionService.submit(new TaskSolver(t, context, sources)))
   }
 
 }
