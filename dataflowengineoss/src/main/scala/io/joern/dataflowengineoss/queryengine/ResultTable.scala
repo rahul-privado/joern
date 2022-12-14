@@ -71,6 +71,7 @@ class ResultTable(
 case class ReachableByResult(
   fingerprint: TaskFingerprint,
   path: Vector[PathElement],
+  parentTasks: List[TaskFingerprint],
   callDepth: Int = 0,
   partial: Boolean = false
 ) {

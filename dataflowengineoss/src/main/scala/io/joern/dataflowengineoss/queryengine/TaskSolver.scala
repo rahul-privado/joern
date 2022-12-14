@@ -130,6 +130,7 @@ class TaskSolver(task: ReachableByTask, context: EngineContext, sources: Set[Cfg
         ReachableByResult(
           TaskFingerprint(sink, callSiteStack),
           PathElement(path.head.node, callSiteStack, isOutputArg = true) +: path.tail,
+          task.parentTasks,
           partial = true
         )
       )
@@ -140,10 +141,12 @@ class TaskSolver(task: ReachableByTask, context: EngineContext, sources: Set[Cfg
     val res = curNode match {
       // Case 1: we have reached a source => return result and continue traversing (expand into parents)
       case x if sources.contains(x.asInstanceOf[NodeType]) =>
-        Vector(ReachableByResult(TaskFingerprint(sink, callSiteStack), path)) ++ deduplicate(computeResultsForParents())
+        Vector(ReachableByResult(TaskFingerprint(sink, callSiteStack), path, task.parentTasks)) ++ deduplicate(
+          computeResultsForParents()
+        )
       // Case 2: we have reached a method parameter (that isn't a source) => return partial result and stop traversing
       case _: MethodParameterIn =>
-        Vector(ReachableByResult(TaskFingerprint(sink, callSiteStack), path, partial = true))
+        Vector(ReachableByResult(TaskFingerprint(sink, callSiteStack), path, task.parentTasks, partial = true))
       // Case 3: we have reached a call to an internal method without semantic (return value) and
       // this isn't the start node => return partial result and stop traversing
       case call: Call

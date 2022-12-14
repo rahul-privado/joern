@@ -36,17 +36,33 @@ class TaskCreator(sources: Set[CfgNode]) {
     */
   private def tasksForParams(results: Vector[ReachableByResult]): Vector[ReachableByTask] = {
     startsAtParameter(results).flatMap { result =>
-      val param = result.path.head.node.asInstanceOf[MethodParameterIn]
-      result.fingerprint.callSiteStack match {
+      val param         = result.path.head.node.asInstanceOf[MethodParameterIn]
+      val callSiteStack = result.fingerprint.callSiteStack
+      callSiteStack match {
         case callSite :: tail =>
           // Case 1
           paramToArgs(param).filter(x => x.inCall.exists(c => c == callSite)).map { arg =>
-            ReachableByTask(arg, sources, new ResultTable, result.path, result.callDepth - 1, tail)
+            ReachableByTask(
+              arg,
+              sources,
+              new ResultTable,
+              result.parentTasks :+ TaskFingerprint(arg, tail),
+              result.path,
+              result.callDepth - 1,
+              tail
+            )
           }
         case _ =>
           // Case 2
           paramToArgs(param).map { arg =>
-            ReachableByTask(arg, sources, new ResultTable, result.path, result.callDepth + 1)
+            ReachableByTask(
+              arg,
+              sources,
+              new ResultTable,
+              result.parentTasks :+ TaskFingerprint(arg, List()),
+              result.path,
+              result.callDepth + 1
+            )
           }
       }
     }
@@ -101,18 +117,29 @@ class TaskCreator(sources: Set[CfgNode]) {
         if (method.isExternal || method.start.isStub.nonEmpty) {
           val newPath = path
           (call.receiver.l ++ call.argument.l).map { arg =>
-            ReachableByTask(arg, sources, new ResultTable, newPath, callDepth, result.fingerprint.callSiteStack)
+            val callSiteStack = result.fingerprint.callSiteStack
+            ReachableByTask(
+              arg,
+              sources,
+              new ResultTable,
+              result.parentTasks :+ TaskFingerprint(arg, callSiteStack),
+              newPath,
+              callDepth,
+              callSiteStack
+            )
           }
         } else {
           returnStatements.map { returnStatement =>
-            val newPath = Vector(PathElement(methodReturn, result.fingerprint.callSiteStack)) ++ path
+            val callSiteStack = result.fingerprint.callSiteStack
+            val newPath       = Vector(PathElement(methodReturn, callSiteStack)) ++ path
             ReachableByTask(
               returnStatement,
               sources,
               new ResultTable,
+              result.parentTasks :+ TaskFingerprint(returnStatement, call :: callSiteStack),
               newPath,
               callDepth + 1,
-              call :: result.fingerprint.callSiteStack
+              call :: callSiteStack
             )
           }
         }
@@ -129,8 +156,18 @@ class TaskCreator(sources: Set[CfgNode]) {
         outParams
           .filterNot(_.method.isExternal)
           .map { p =>
-            val newStack = arg.inCall.headOption.map { x => x :: result.fingerprint.callSiteStack }.getOrElse(result.fingerprint.callSiteStack)
-            ReachableByTask(p, sources, new ResultTable, path, callDepth + 1, newStack)
+            val newStack = arg.inCall.headOption
+              .map { x => x :: result.fingerprint.callSiteStack }
+              .getOrElse(result.fingerprint.callSiteStack)
+            ReachableByTask(
+              p,
+              sources,
+              new ResultTable,
+              result.parentTasks :+ TaskFingerprint(p, newStack),
+              path,
+              callDepth + 1,
+              newStack
+            )
           }
       }
     }

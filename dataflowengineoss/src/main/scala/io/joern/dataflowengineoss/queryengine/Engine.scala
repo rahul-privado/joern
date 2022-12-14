@@ -21,6 +21,7 @@ case class ReachableByTask(
   sink: CfgNode,
   sources: Set[CfgNode],
   table: ResultTable,
+  parentTasks: List[TaskFingerprint],
   initialPath: Vector[PathElement] = Vector(),
   callDepth: Int = 0,
   callSiteStack: List[Call] = List()
@@ -42,6 +43,8 @@ class Engine(context: EngineContext) {
   private val completionService =
     new ExecutorCompletionService[TaskSummary](executorService)
 
+  private val mainResultTable: ResultTable = newResultTable()
+
   def shutdown(): Unit = {
     executorService.shutdown()
   }
@@ -59,6 +62,17 @@ class Engine(context: EngineContext) {
     val sourcesSet = sources.toSet
     val tasks      = createOneTaskPerSink(sourcesSet, sinks)
     solveTasks(tasks, sourcesSet)
+    val resultsFromTable = deduplicate(extractResultsFromTable(sinks))
+    resultsFromTable
+  }
+
+  private def extractResultsFromTable(sinks: List[CfgNode]): Vector[ReachableByResult] = {
+    sinks.flatMap { sink =>
+      mainResultTable.get(TaskFingerprint(sink, List())) match {
+        case Some(results) => results
+        case _             => Vector()
+      }
+    }.toVector
   }
 
   /** Create a new result table. If `context.config.initialTable` is set, this initial table is cloned and returned.
@@ -69,20 +83,29 @@ class Engine(context: EngineContext) {
   /** Create one task per sink where each task has its own result table.
     */
   private def createOneTaskPerSink(sourcesSet: Set[CfgNode], sinks: List[CfgNode]) = {
-    sinks.map(sink => ReachableByTask(sink, sourcesSet, newResultTable()))
+    sinks.map(sink => ReachableByTask(sink, sourcesSet, newResultTable(), List(TaskFingerprint(sink, List()))))
   }
 
   /** Submit tasks to a worker pool, solving them in parallel. Upon receiving results for a task, new tasks are
     * submitted accordingly. Once no more tasks can be created, the list of results is returned.
     */
-  private def solveTasks(tasks: List[ReachableByTask], sources: Set[CfgNode]): Vector[ReachableByResult] = {
-    var completedResults = List[ReachableByResult]()
+  private def solveTasks(tasks: List[ReachableByTask], sources: Set[CfgNode]): Unit = {
 
     def handleSummary(taskSummary: TaskSummary): Unit = {
       val newTasks = taskSummary.followupTasks
       submitTasks(newTasks, sources)
       val newResults = taskSummary.results
-      completedResults ++= newResults
+      addResultsToMainTable(newResults)
+    }
+
+    def addResultsToMainTable(newResults: Vector[ReachableByResult]): Unit = {
+      newResults.foreach { r =>
+        r.parentTasks.foreach { parentTask =>
+          val pathToSink = r.path.slice(0, r.path.map(_.node).indexOf(parentTask.sink))
+          val newPath    = pathToSink :+ PathElement(parentTask.sink.asInstanceOf[CfgNode], parentTask.callSiteStack)
+          mainResultTable.add(parentTask, Vector(r.copy(path = newPath, fingerprint = parentTask)))
+        }
+      }
     }
 
     def runUntilAllTasksAreSolved(): Unit = {
@@ -103,7 +126,6 @@ class Engine(context: EngineContext) {
 
     submitTasks(tasks.toVector, sources)
     runUntilAllTasksAreSolved()
-    deduplicate(completedResults.toVector)
   }
 
   private def submitTasks(tasks: Vector[ReachableByTask], sources: Set[CfgNode]) = {
