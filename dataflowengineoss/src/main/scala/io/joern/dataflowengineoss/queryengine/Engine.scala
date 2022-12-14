@@ -146,8 +146,8 @@ class Engine(context: EngineContext) {
       started.contains(fingerprint)
     }
     held ++= tasksToHold
-    numberOfTasksRunning += tasks.size
     started ++= tasksToSolve.map(x => TaskFingerprint(x.sink, x.callSiteStack))
+    numberOfTasksRunning += tasksToSolve.size
     tasksToSolve.foreach(t => completionService.submit(new TaskSolver(t, context, sources)))
   }
 
