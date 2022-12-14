@@ -37,7 +37,7 @@ class TaskCreator(sources: Set[CfgNode]) {
   private def tasksForParams(results: Vector[ReachableByResult]): Vector[ReachableByTask] = {
     startsAtParameter(results).flatMap { result =>
       val param = result.path.head.node.asInstanceOf[MethodParameterIn]
-      result.callSiteStack match {
+      result.fingerprint.callSiteStack match {
         case callSite :: tail =>
           // Case 1
           paramToArgs(param).filter(x => x.inCall.exists(c => c == callSite)).map { arg =>
@@ -101,18 +101,18 @@ class TaskCreator(sources: Set[CfgNode]) {
         if (method.isExternal || method.start.isStub.nonEmpty) {
           val newPath = path
           (call.receiver.l ++ call.argument.l).map { arg =>
-            ReachableByTask(arg, sources, new ResultTable, newPath, callDepth, result.callSiteStack)
+            ReachableByTask(arg, sources, new ResultTable, newPath, callDepth, result.fingerprint.callSiteStack)
           }
         } else {
           returnStatements.map { returnStatement =>
-            val newPath = Vector(PathElement(methodReturn, result.callSiteStack)) ++ path
+            val newPath = Vector(PathElement(methodReturn, result.fingerprint.callSiteStack)) ++ path
             ReachableByTask(
               returnStatement,
               sources,
               new ResultTable,
               newPath,
               callDepth + 1,
-              call :: result.callSiteStack
+              call :: result.fingerprint.callSiteStack
             )
           }
         }
@@ -121,7 +121,7 @@ class TaskCreator(sources: Set[CfgNode]) {
 
     val forArgs = outArgsAndCalls.flatMap { case (result, args, path, callDepth) =>
       args.toList.flatMap { case arg: Expression =>
-        val outParams = if (result.callSiteStack.nonEmpty) {
+        val outParams = if (result.fingerprint.callSiteStack.nonEmpty) {
           List[MethodParameterOut]()
         } else {
           argToOutputParams(arg).l
@@ -129,7 +129,7 @@ class TaskCreator(sources: Set[CfgNode]) {
         outParams
           .filterNot(_.method.isExternal)
           .map { p =>
-            val newStack = arg.inCall.headOption.map { x => x :: result.callSiteStack }.getOrElse(result.callSiteStack)
+            val newStack = arg.inCall.headOption.map { x => x :: result.fingerprint.callSiteStack }.getOrElse(result.fingerprint.callSiteStack)
             ReachableByTask(p, sources, new ResultTable, path, callDepth + 1, newStack)
           }
       }

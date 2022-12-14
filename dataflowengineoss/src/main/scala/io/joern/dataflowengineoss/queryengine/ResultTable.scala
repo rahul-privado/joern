@@ -60,19 +60,17 @@ class ResultTable(
 
 /** A (partial) result, informing about a path that exists from a source to another node in the graph.
   *
+  * @param fingerprint
+  *   this is the task fingerprint, that is, the task that was solved
   * @param path
   *   this is the main result - a known path
-  * @param callSiteStack
-  *   the call site stack containing the call sites that were expanded to kick off the task. We require this to match
-  *   call sites to exclude non-realizable paths through other callers
   * @param partial
   *   indicate whether this result stands on its own or requires further analysis, e.g., by expanding output arguments
   *   backwards into method output parameters.
   */
 case class ReachableByResult(
-  sink: CfgNode,
+  fingerprint: TaskFingerprint,
   path: Vector[PathElement],
-  callSiteStack: List[Call],
   callDepth: Int = 0,
   partial: Boolean = false
 ) {
