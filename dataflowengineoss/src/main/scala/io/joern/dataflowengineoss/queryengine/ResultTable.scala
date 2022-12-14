@@ -62,8 +62,6 @@ class ResultTable(
   *
   * @param path
   *   this is the main result - a known path
-  * @param table
-  *   the result table - kept to allow for detailed inspection of intermediate paths
   * @param callSiteStack
   *   the call site stack containing the call sites that were expanded to kick off the task. We require this to match
   *   call sites to exclude non-realizable paths through other callers
@@ -74,7 +72,6 @@ class ResultTable(
 case class ReachableByResult(
   sink: CfgNode,
   path: Vector[PathElement],
-  table: ResultTable,
   callSiteStack: List[Call],
   callDepth: Int = 0,
   partial: Boolean = false
