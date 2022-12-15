@@ -69,18 +69,27 @@ class Engine(context: EngineContext) {
     val sourcesSet = sources.toSet
     val tasks      = createOneTaskPerSink(sourcesSet, sinks)
     solveTasks(tasks, sourcesSet)
-    checkTableIntegrity(sourcesSet)
+    checkTableIntegrity(sourcesSet, sinks)
     val resultsFromTable = extractResultsFromTable(sinks)
     deduplicate(resultsFromTable ++ completeHeldTasks())
   }
 
-  private def checkTableIntegrity(sources : Set[CfgNode]) : Unit = {
-    mainResultTable.keys().foreach{ fingerprint =>
-      val results = mainResultTable.get(fingerprint).get
+  private def checkTableIntegrity(sources: Set[CfgNode], sinks: List[CfgNode]): Unit = {
+    mainResultTable.keys().foreach { key =>
+      val results = mainResultTable.get(key).get
       if (results.isEmpty) {
-       throw new RuntimeException("Empty results found for key: " + fingerprint)
+        throw new RuntimeException("Empty results found for key: " + key)
       }
-      results.foreach{ r =>
+      results.foreach { r =>
+        if (r.fingerprint != key) {
+          throw new RuntimeException("The fingerprint of the result does not match the key in the table")
+        }
+        if (r.path.last.node != r.fingerprint.sink) {
+          throw new RuntimeException("Last node in path is not equal to result sink")
+        }
+        if (r.path.last.callSiteStack != r.fingerprint.callSiteStack) {
+          throw new RuntimeException("Last callSiteStack in path is not equal to result callSiteStack")
+        }
         if (r.partial) {
           throw new RuntimeException("Partial result found in table")
         }
@@ -93,6 +102,12 @@ class Engine(context: EngineContext) {
         }
         if (r.path.isEmpty) {
           throw new RuntimeException("Identified empty path")
+        }
+        if (r.parentTasks.isEmpty) {
+          throw new RuntimeException("parentTasks is empty")
+        }
+        if (!r.parentTasks.contains(r.fingerprint)) {
+          throw new RuntimeException("Task fingerprint is not contained in parent tasks")
         }
       }
     }
@@ -141,10 +156,15 @@ class Engine(context: EngineContext) {
 
     def addResultsToMainTable(newResults: Vector[ReachableByResult]): Unit = {
       newResults.foreach { r =>
-        r.parentTasks.foreach { parentTask =>
+        r.parentTasks.indices.foreach { i =>
+          val parentTask = r.parentTasks(i)
           val pathToSink = r.path.slice(0, r.path.map(_.node).indexOf(parentTask.sink))
           val newPath    = pathToSink :+ PathElement(parentTask.sink.asInstanceOf[CfgNode], parentTask.callSiteStack)
-          mainResultTable.add(parentTask, Vector(r.copy(path = newPath, fingerprint = parentTask)))
+          val newParentTasks = r.parentTasks.slice(i, r.parentTasks.size)
+          mainResultTable.add(
+            parentTask,
+            Vector(r.copy(path = newPath, fingerprint = parentTask, parentTasks = newParentTasks))
+          )
         }
       }
     }
