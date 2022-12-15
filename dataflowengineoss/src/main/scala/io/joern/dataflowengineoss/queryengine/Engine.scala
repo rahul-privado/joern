@@ -69,12 +69,20 @@ class Engine(context: EngineContext) {
     val sourcesSet = sources.toSet
     val tasks      = createOneTaskPerSink(sourcesSet, sinks)
     solveTasks(tasks, sourcesSet)
-    checkTableIntegrity(sourcesSet, sinks)
+    val completedResults = completeHeldTasks()
+    addCompletedTasksToMainTable(completedResults)
+    checkTableIntegrity(sourcesSet)
     val resultsFromTable = extractResultsFromTable(sinks)
-    deduplicate(resultsFromTable ++ completeHeldTasks())
+    deduplicate(resultsFromTable)
   }
 
-  private def checkTableIntegrity(sources: Set[CfgNode], sinks: List[CfgNode]): Unit = {
+  private def addCompletedTasksToMainTable(results: List[ReachableByResult]): Unit = {
+    results.foreach { r =>
+      mainResultTable.add(r.fingerprint, Vector(r))
+    }
+  }
+
+  private def checkTableIntegrity(sources: Set[CfgNode]): Unit = {
     mainResultTable.keys().foreach { key =>
       val results = mainResultTable.get(key).get
       if (results.isEmpty) {
@@ -115,11 +123,25 @@ class Engine(context: EngineContext) {
 
   private def completeHeldTasks(): List[ReachableByResult] = {
     held.par.flatMap { heldTask =>
-      mainResultTable
-        .createFromTable(PathElement(heldTask.sink), heldTask.callSiteStack, heldTask.initialPath)
-        .toList
-        .flatMap(_.toList)
+      resultsForHeldTask(heldTask)
     }.toList
+  }
+
+  private def resultsForHeldTask(heldTask: ReachableByTask): List[ReachableByResult] = {
+    val fingerprint = TaskFingerprint(heldTask.sink, heldTask.callSiteStack)
+    mainResultTable.get(fingerprint) match {
+      case Some(results) =>
+        results.map { r =>
+          ReachableByResult(
+            fingerprint = heldTask.parentTasks.head,
+            path = r.path ++ heldTask.initialPath,
+            parentTasks = heldTask.parentTasks ++ r.parentTasks.tail,
+            callDepth = heldTask.callDepth,
+            partial = false
+          )
+        }.toList
+      case None => List()
+    }
   }
 
   private def extractResultsFromTable(sinks: List[CfgNode]): Vector[ReachableByResult] = {
