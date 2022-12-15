@@ -69,8 +69,33 @@ class Engine(context: EngineContext) {
     val sourcesSet = sources.toSet
     val tasks      = createOneTaskPerSink(sourcesSet, sinks)
     solveTasks(tasks, sourcesSet)
+    checkTableIntegrity(sourcesSet)
     val resultsFromTable = extractResultsFromTable(sinks)
     deduplicate(resultsFromTable ++ completeHeldTasks())
+  }
+
+  private def checkTableIntegrity(sources : Set[CfgNode]) : Unit = {
+    mainResultTable.keys().foreach{ fingerprint =>
+      val results = mainResultTable.get(fingerprint).get
+      if (results.isEmpty) {
+       throw new RuntimeException("Empty results found for key: " + fingerprint)
+      }
+      results.foreach{ r =>
+        if (r.partial) {
+          throw new RuntimeException("Partial result found in table")
+        }
+        if (r.path.last.node != r.fingerprint.sink) {
+          println(r.path.last.node.id(), r.fingerprint.sink.id())
+          throw new RuntimeException("Identified result where last node on path is not sink")
+        }
+        if (!sources.contains(r.path.head.node)) {
+          throw new RuntimeException("Identified result where first node is not a source")
+        }
+        if (r.path.isEmpty) {
+          throw new RuntimeException("Identified empty path")
+        }
+      }
+    }
   }
 
   private def completeHeldTasks(): List[ReachableByResult] = {
