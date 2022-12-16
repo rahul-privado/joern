@@ -19,7 +19,6 @@ import scala.util.{Failure, Success, Try}
 
 case class ReachableByTask(
   sink: CfgNode,
-  sources: Set[CfgNode],
   table: ResultTable,
   parentTasks: List[TaskFingerprint],
   initialPath: Vector[PathElement] = Vector(),
@@ -67,7 +66,7 @@ class Engine(context: EngineContext) {
       logger.info("Attempting to determine flows to empty list of sinks.")
     }
     val sourcesSet = sources.toSet
-    val tasks      = createOneTaskPerSink(sourcesSet, sinks)
+    val tasks      = createOneTaskPerSink(sinks)
     solveTasks(tasks, sourcesSet)
     val completedResults = completeHeldTasks()
     addCompletedTasksToMainTable(completedResults)
@@ -160,8 +159,8 @@ class Engine(context: EngineContext) {
 
   /** Create one task per sink where each task has its own result table.
     */
-  private def createOneTaskPerSink(sourcesSet: Set[CfgNode], sinks: List[CfgNode]) = {
-    sinks.map(sink => ReachableByTask(sink, sourcesSet, newResultTable(), List(TaskFingerprint(sink, List()))))
+  private def createOneTaskPerSink(sinks: List[CfgNode]) = {
+    sinks.map(sink => ReachableByTask(sink, newResultTable(), List(TaskFingerprint(sink, List()))))
   }
 
   /** Submit tasks to a worker pool, solving them in parallel. Upon receiving results for a task, new tasks are

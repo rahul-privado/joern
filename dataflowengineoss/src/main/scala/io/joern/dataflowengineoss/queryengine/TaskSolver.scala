@@ -31,7 +31,7 @@ class TaskSolver(task: ReachableByTask, context: EngineContext, sources: Set[Cfg
     } else {
       implicit val sem: Semantics = context.semantics
       val path                    = PathElement(task.sink, task.callSiteStack) +: task.initialPath
-      results(task.sink, path, task.sources, task.table, task.callSiteStack)
+      results(task.sink, path, task.table, task.callSiteStack)
       // TODO why do we update the call depth here?
       val finalResults = task.table.get(TaskFingerprint(task.sink, task.callSiteStack)).get.map { r =>
         r.copy(callDepth = task.callDepth)
@@ -64,7 +64,6 @@ class TaskSolver(task: ReachableByTask, context: EngineContext, sources: Set[Cfg
   private def results[NodeType <: CfgNode](
     sink: CfgNode,
     path: Vector[PathElement],
-    sources: Set[NodeType],
     table: ResultTable,
     callSiteStack: List[Call]
   )(implicit semantics: Semantics): Vector[ReachableByResult] = {
@@ -88,7 +87,7 @@ class TaskSolver(task: ReachableByTask, context: EngineContext, sources: Set[Cfg
       } else {
         QueryEngineStatistics.incrementBy(PATH_CACHE_MISSES, 1L)
         val newPath = elemToPrepend +: path
-        results(sink, newPath, sources, table, callSiteStack)
+        results(sink, newPath, table, callSiteStack)
       }
     }
 

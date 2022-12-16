@@ -44,7 +44,6 @@ class TaskCreator(sources: Set[CfgNode]) {
           paramToArgs(param).filter(x => x.inCall.exists(c => c == callSite)).map { arg =>
             ReachableByTask(
               arg,
-              sources,
               new ResultTable,
               result.parentTasks :+ TaskFingerprint(arg, tail),
               result.path,
@@ -57,7 +56,6 @@ class TaskCreator(sources: Set[CfgNode]) {
           paramToArgs(param).map { arg =>
             ReachableByTask(
               arg,
-              sources,
               new ResultTable,
               result.parentTasks :+ TaskFingerprint(arg, List()),
               result.path,
@@ -120,7 +118,6 @@ class TaskCreator(sources: Set[CfgNode]) {
             val callSiteStack = result.fingerprint.callSiteStack
             ReachableByTask(
               arg,
-              sources,
               new ResultTable,
               result.parentTasks :+ TaskFingerprint(arg, callSiteStack),
               newPath,
@@ -134,7 +131,6 @@ class TaskCreator(sources: Set[CfgNode]) {
             val newPath       = Vector(PathElement(methodReturn, callSiteStack)) ++ path
             ReachableByTask(
               returnStatement,
-              sources,
               new ResultTable,
               result.parentTasks :+ TaskFingerprint(returnStatement, call :: callSiteStack),
               newPath,
@@ -161,7 +157,6 @@ class TaskCreator(sources: Set[CfgNode]) {
               .getOrElse(result.fingerprint.callSiteStack)
             ReachableByTask(
               p,
-              sources,
               new ResultTable,
               result.parentTasks :+ TaskFingerprint(p, newStack),
               path,
