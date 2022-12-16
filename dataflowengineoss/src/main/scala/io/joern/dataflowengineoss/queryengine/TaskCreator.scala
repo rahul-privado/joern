@@ -43,19 +43,16 @@ class TaskCreator(sources: Set[CfgNode]) {
           // Case 1
           paramToArgs(param).filter(x => x.inCall.exists(c => c == callSite)).map { arg =>
             ReachableByTask(
-              arg,
               new ResultTable,
               result.parentTasks :+ TaskFingerprint(arg, tail),
               result.path,
-              result.callDepth - 1,
-              tail
+              result.callDepth - 1
             )
           }
         case _ =>
           // Case 2
           paramToArgs(param).map { arg =>
             ReachableByTask(
-              arg,
               new ResultTable,
               result.parentTasks :+ TaskFingerprint(arg, List()),
               result.path,
@@ -117,12 +114,10 @@ class TaskCreator(sources: Set[CfgNode]) {
           (call.receiver.l ++ call.argument.l).map { arg =>
             val callSiteStack = result.fingerprint.callSiteStack
             ReachableByTask(
-              arg,
               new ResultTable,
               result.parentTasks :+ TaskFingerprint(arg, callSiteStack),
               newPath,
-              callDepth,
-              callSiteStack
+              callDepth
             )
           }
         } else {
@@ -130,12 +125,10 @@ class TaskCreator(sources: Set[CfgNode]) {
             val callSiteStack = result.fingerprint.callSiteStack
             val newPath       = Vector(PathElement(methodReturn, callSiteStack)) ++ path
             ReachableByTask(
-              returnStatement,
               new ResultTable,
               result.parentTasks :+ TaskFingerprint(returnStatement, call :: callSiteStack),
               newPath,
-              callDepth + 1,
-              call :: callSiteStack
+              callDepth + 1
             )
           }
         }
@@ -155,14 +148,7 @@ class TaskCreator(sources: Set[CfgNode]) {
             val newStack = arg.inCall.headOption
               .map { x => x :: result.fingerprint.callSiteStack }
               .getOrElse(result.fingerprint.callSiteStack)
-            ReachableByTask(
-              p,
-              new ResultTable,
-              result.parentTasks :+ TaskFingerprint(p, newStack),
-              path,
-              callDepth + 1,
-              newStack
-            )
+            ReachableByTask(new ResultTable, result.parentTasks :+ TaskFingerprint(p, newStack), path, callDepth + 1)
           }
       }
     }

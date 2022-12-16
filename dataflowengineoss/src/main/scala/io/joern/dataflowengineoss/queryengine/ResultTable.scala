@@ -1,6 +1,6 @@
 package io.joern.dataflowengineoss.queryengine
 
-import io.shiftleft.codepropertygraph.generated.nodes.{Call, CfgNode, Expression, StoredNode}
+import io.shiftleft.codepropertygraph.generated.nodes.{Call, CfgNode}
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
@@ -8,7 +8,7 @@ import scala.jdk.CollectionConverters._
 /** We can only reuse results if we have calculated them for the same context, and therefore, the key must capture the
   * entire context. Currently, the context consists of the sink node and the call site stack upon invoking the task.
   */
-case class TaskFingerprint(sink: StoredNode, callSiteStack: List[Call] = List())
+case class TaskFingerprint(sink: CfgNode, callSiteStack: List[Call] = List())
 
 /** The Result Table is a cache that allows retrieving known paths for nodes, that is, paths that end in the node.
   */

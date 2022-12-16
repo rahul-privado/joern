@@ -18,13 +18,16 @@ import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 case class ReachableByTask(
-  sink: CfgNode,
   table: ResultTable,
   parentTasks: List[TaskFingerprint],
   initialPath: Vector[PathElement] = Vector(),
-  callDepth: Int = 0,
-  callSiteStack: List[Call] = List()
-)
+  callDepth: Int = 0
+) {
+
+  def sink: CfgNode             = parentTasks.last.sink
+  def callSiteStack: List[Call] = parentTasks.last.callSiteStack
+
+}
 
 case class TaskSummary(
   task: ReachableByTask,
@@ -160,7 +163,7 @@ class Engine(context: EngineContext) {
   /** Create one task per sink where each task has its own result table.
     */
   private def createOneTaskPerSink(sinks: List[CfgNode]) = {
-    sinks.map(sink => ReachableByTask(sink, newResultTable(), List(TaskFingerprint(sink, List()))))
+    sinks.map(sink => ReachableByTask(newResultTable(), List(TaskFingerprint(sink, List()))))
   }
 
   /** Submit tasks to a worker pool, solving them in parallel. Upon receiving results for a task, new tasks are
