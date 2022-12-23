@@ -70,7 +70,7 @@ class Engine(context: EngineContext) {
     * and return them.
     */
   private val mainResultTable: mutable.Map[TaskFingerprint, List[TableEntry]] = mutable.Map()
-  private val started: mutable.Buffer[ReachableByTask]                        = mutable.Buffer()
+  private val started: mutable.HashSet[TaskFingerprint]                        = mutable.HashSet[TaskFingerprint]()
   private val held: mutable.Buffer[ReachableByTask]                           = mutable.Buffer()
 
   private val lockStarted  = new ReentrantReadWriteLock()
@@ -123,10 +123,10 @@ class Engine(context: EngineContext) {
       TaskSolver.futuresStartedCounter.incrementAndGet()
       Future {
       tasks.foreach { task => synchronized(
-        if (started.exists(x => x.fingerprint == task.fingerprint)) {
+        if(started.contains(task.fingerprint)){
           held ++= Vector(task)
         } else {
-          started ++= Vector(task)
+          started.add(task.fingerprint)
           val ts = new TaskSolver(task, context, sources)
           val resultsOfTask = ts.call()
           handleSummary(resultsOfTask)
@@ -153,6 +153,7 @@ class Engine(context: EngineContext) {
     submitTasks(tasks.toVector, sources)
     do {
       Thread.sleep(100)
+      TaskSolver.printStats()
     } while (TaskSolver.futuresStartedCounter.get() > TaskSolver.futuresEndedCounter.get() ||
       TaskSolver.totalTaskCounter.get() > TaskSolver.doneTaskCounter.get())
 
