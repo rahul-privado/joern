@@ -15,7 +15,8 @@ import java.util.concurrent._
 import scala.collection.mutable
 import scala.collection.parallel.CollectionConverters._
 import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 
 /** @param taskStack
   *   The list of tasks that was solved to arrive at this task, including the current task, which is to be solved. The
@@ -46,7 +47,9 @@ case class ReachableByTask(taskStack: List[TaskFingerprint], initialPath: Vector
   def callSiteStack: List[Call] = fingerprint.callSiteStack
 }
 
-case class TaskSummary(tableEntries: Vector[(TaskFingerprint, TableEntry)], followupTasks: Vector[ReachableByTask])
+case class TaskSummary(task: ReachableByTask,
+                       tableEntries: Vector[(TaskFingerprint, TableEntry)],
+                       followupTasks: Vector[ReachableByTask])
 case class TableEntry(path: Vector[PathElement])
 
 /** The data flow engine allows determining paths to a set of sinks from a set of sources. To this end, it solves tasks
@@ -59,15 +62,10 @@ class Engine(context: EngineContext) {
   import Engine._
 
   private val logger: Logger                   = LoggerFactory.getLogger(this.getClass)
-  private val executorService: ExecutorService = Executors.newWorkStealingPool()
-  private val completionService =
-    new ExecutorCompletionService[TaskSummary](executorService)
-
   /** All results of tasks are accumulated in this table. At the end of the analysis, we extract results from the table
     * and return them.
     */
   private val mainResultTable: mutable.Map[TaskFingerprint, List[TableEntry]] = mutable.Map()
-  private var numberOfTasksRunning: Int                                       = 0
   private val started: mutable.Buffer[ReachableByTask]                        = mutable.Buffer()
   private val held: mutable.Buffer[ReachableByTask]                           = mutable.Buffer()
 
@@ -89,7 +87,6 @@ class Engine(context: EngineContext) {
 
   private def reset(): Unit = {
     mainResultTable.clear()
-    numberOfTasksRunning = 0
     started.clear()
     held.clear()
   }
@@ -98,9 +95,7 @@ class Engine(context: EngineContext) {
     sinks.map(sink => ReachableByTask(List(TaskFingerprint(sink, List())), Vector(), 0))
   }
 
-  /** Submit tasks to a worker pool, solving them in parallel. Upon receiving results for a task, new tasks are
-    * submitted accordingly. Once no more tasks can be created, the list of results is returned.
-    */
+
   private def solveTasks(
     tasks: List[ReachableByTask],
     sources: Set[CfgNode],
@@ -117,6 +112,29 @@ class Engine(context: EngineContext) {
       addResultsToMainTable(newResults)
     }
 
+    def submitTasks(tasks: Vector[ReachableByTask], sources: Set[CfgNode]) = {
+      val (tasksToHold, tasksToSolve) = tasks.par.partition { t =>
+        val fingerprint = TaskFingerprint(t.sink, t.callSiteStack)
+        // We run tasks for all callDepths to be consistent
+        // TODO There is a possible optimization here: if we already know the results from
+        // another call-depth, we can jump straight to creation of new tasks.
+        started.exists(x => x.fingerprint == fingerprint && x.callDepth == t.callDepth)
+      }
+      held ++= tasksToHold
+      started ++= tasksToSolve
+      TaskSolver.futuresStartedCounter.incrementAndGet()
+      Future {
+        tasksToSolve.foreach(t => {
+        val ts = new TaskSolver(t, context, sources)
+        val resultsOfTask = ts.call()
+        handleSummary(resultsOfTask)
+          }
+        )
+      }.onComplete(_ => {
+        TaskSolver.futuresEndedCounter.incrementAndGet()
+      })
+    }
+
     def addResultsToMainTable(results: Vector[(TaskFingerprint, TableEntry)]): Unit = {
       results.groupBy(_._1).foreach { case (fingerprint, resultList) =>
         val entries = resultList.map(_._2).toList
@@ -127,27 +145,31 @@ class Engine(context: EngineContext) {
       }
     }
 
-    def runUntilAllTasksAreSolved(): Unit = {
-      while (numberOfTasksRunning > 0) {
-        Try {
-          completionService.take.get
-        } match {
-          case Success(resultsOfTask) =>
-            numberOfTasksRunning -= 1
-            handleSummary(resultsOfTask)
-          case Failure(exception) =>
-            numberOfTasksRunning -= 1
-            logger.warn(s"SolveTask failed with exception:", exception)
-            exception.printStackTrace()
-        }
-      }
-    }
-
+    val startTimeSec: Long = System.currentTimeMillis / 1000
     submitTasks(tasks.toVector, sources)
-    runUntilAllTasksAreSolved()
+
+    do {
+      Thread.sleep(100)
+    } while (TaskSolver.futuresStartedCounter.get() > TaskSolver.futuresEndedCounter.get() ||
+      TaskSolver.totalTaskCounter.get() > TaskSolver.doneTaskCounter.get())
+
+    val taskFinishTimeSec: Long = System.currentTimeMillis / 1000
+
+    TaskSolver.printStats()
+
     deduplicateResultTable()
     completeHeldTasks()
-    deduplicateFinal(extractResultsFromTable(sinks))
+    val dedupResult = deduplicateFinal(extractResultsFromTable(sinks))
+    val allDoneTimeSec: Long
+    = System.currentTimeMillis / 1000
+
+    logger.debug(
+      "Time measurement -----> Task processing: " +
+        (taskFinishTimeSec - startTimeSec) + " seconds" +
+        ", Deduplication: " + (allDoneTimeSec - taskFinishTimeSec) +
+        ", Deduped results size: " + dedupResult.length
+    )
+    dedupResult
   }
 
   private def deduplicateResultTable(): Unit = {
@@ -174,19 +196,6 @@ class Engine(context: EngineContext) {
     }
   }
 
-  private def submitTasks(tasks: Vector[ReachableByTask], sources: Set[CfgNode]) = {
-    val (tasksToHold, tasksToSolve) = tasks.par.partition { t =>
-      val fingerprint = TaskFingerprint(t.sink, t.callSiteStack)
-      // We run tasks for all callDepths to be consistent
-      // TODO There is a possible optimization here: if we already know the results from
-      // another call-depth, we can jump straight to creation of new tasks.
-      started.exists(x => x.fingerprint == fingerprint && x.callDepth == t.callDepth)
-    }
-    held ++= tasksToHold
-    started ++= tasksToSolve
-    numberOfTasksRunning += tasksToSolve.size
-    tasksToSolve.foreach(t => completionService.submit(new TaskSolver(t, context, sources)))
-  }
 
   /** Add results produced by held task until no more change can be observed.
     */
@@ -253,10 +262,7 @@ class Engine(context: EngineContext) {
 
   /** This must be called when one is done using the engine.
     */
-  def shutdown(): Unit = {
-    executorService.shutdown()
-  }
-
+  def shutdown(): Unit = {}
 }
 
 object Engine {
