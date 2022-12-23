@@ -53,6 +53,8 @@ case class TaskSummary(task: ReachableByTask,
                        followupTasks: Vector[ReachableByTask])
 case class TableEntry(path: Vector[PathElement])
 
+case class HashKey( fingerPrint: TaskFingerprint, callDepth: Int )
+
 /** The data flow engine allows determining paths to a set of sinks from a set of sources. To this end, it solves tasks
   * in parallel, creating and submitting new tasks upon completion of tasks. This class deals only with task scheduling,
   * while the creation of new tasks from existing tasks is handled by the class `TaskCreator`, and solving of tasks is
@@ -67,7 +69,7 @@ class Engine(context: EngineContext) {
     * and return them.
     */
   private val mainResultTable: mutable.Map[TaskFingerprint, List[TableEntry]] = mutable.Map()
-  private val started =  mutable.HashMap[String, ReachableByTask]()
+  private val started                                                         = mutable.HashMap[HashKey, ReachableByTask]()
   private val held: mutable.Buffer[ReachableByTask]                           = mutable.Buffer()
 
   private val lockStarted  = new ReentrantReadWriteLock()
@@ -119,25 +121,24 @@ class Engine(context: EngineContext) {
 
     def submitTasks(tasks: Vector[ReachableByTask], sources: Set[CfgNode]) = {
 
-        val (tasksToHold, tasksToSolve) = tasks.par.partition { t =>
+      val tasksPar = tasks.par
+      readStarted.lock()
+        val (tasksToHold, tasksToSolve) = tasksPar.partition { t =>
           val fingerprint = TaskFingerprint(t.sink, t.callSiteStack)
           // We run tasks for all callDepths to be consistent
           // TODO There is a possible optimization here: if we already know the results from
           // another call-depth, we can jump straight to creation of new tasks.
-          val key = fingerprint.toString + t.callDepth
-          readStarted.lock()
-          val doesExist = started.contains(key)
-          readStarted.unlock()
-          doesExist
+          started.contains(HashKey( fingerprint, t.callDepth ))
         }
+      readStarted.unlock()
 
       synchronized(held ++= tasksToHold)
 
       tasksToSolve.foreach( t => {
         val fingerprint = TaskFingerprint(t.sink, t.callSiteStack)
-        val key = fingerprint.toString + t.callDepth
+        val key = HashKey( fingerprint, t.callDepth )
         writeStarted.lock()
-        started.addOne(key, t)
+        started.put(key, t)
         writeStarted.unlock()
       })
 
@@ -182,6 +183,8 @@ class Engine(context: EngineContext) {
       "Time measurement -----> Task processing done in " +
         (taskFinishTimeSec - startTimeSec) + " seconds"
     )
+
+    println("Main result table size: " + mainResultTable.size)
 
     deduplicateResultTable()
     completeHeldTasks()
