@@ -3,7 +3,6 @@ package io.joern.dataflowengineoss.queryengine
 import io.joern.dataflowengineoss.DefaultSemantics
 import io.joern.dataflowengineoss.language._
 import io.joern.dataflowengineoss.passes.reachingdef.EdgeValidator
-import io.joern.dataflowengineoss.queryengine.TaskSolver.{doneTaskCounter, futuresEndedCounter, futuresStartedCounter, lastDoneTasks, totalTaskCounter}
 import io.joern.dataflowengineoss.semanticsloader.{FlowSemantic, Semantics}
 import io.shiftleft.codepropertygraph.generated.nodes._
 import io.shiftleft.codepropertygraph.generated.{EdgeTypes, Properties}
@@ -13,6 +12,7 @@ import overflowdb.Edge
 import overflowdb.traversal.{NodeOps, Traversal}
 
 import java.util.concurrent._
+import java.util.concurrent.locks.{ReentrantReadWriteLock}
 import scala.collection.mutable
 import scala.collection.parallel.CollectionConverters._
 import scala.jdk.CollectionConverters._
@@ -70,6 +70,10 @@ class Engine(context: EngineContext) {
   private val started: mutable.Buffer[ReachableByTask]                        = mutable.Buffer()
   private val held: mutable.Buffer[ReachableByTask]                           = mutable.Buffer()
 
+  private val lockStarted  = new ReentrantReadWriteLock()
+  private val readStarted  = lockStarted.readLock()
+  private val writeStarted = lockStarted.writeLock()
+
   /** Determine flows from sources to sinks by exploring the graph backwards from sinks to sources. Returns the list of
     * results along with a ResultTable, a cache of known paths created during the analysis.
     */
@@ -114,15 +118,23 @@ class Engine(context: EngineContext) {
     }
 
     def submitTasks(tasks: Vector[ReachableByTask], sources: Set[CfgNode]) = {
+
         val (tasksToHold, tasksToSolve) = tasks.par.partition { t =>
           val fingerprint = TaskFingerprint(t.sink, t.callSiteStack)
           // We run tasks for all callDepths to be consistent
           // TODO There is a possible optimization here: if we already know the results from
           // another call-depth, we can jump straight to creation of new tasks.
-          synchronized(started.exists(x => x.fingerprint == fingerprint && x.callDepth == t.callDepth))
+          readStarted.lock()
+          val doesExist = started.exists(x => x.fingerprint == fingerprint && x.callDepth == t.callDepth)
+          readStarted.unlock()
+          doesExist
         }
+
       synchronized(held ++= tasksToHold)
-      synchronized(started ++= tasksToSolve)
+
+      writeStarted.lock()
+      started ++= tasksToSolve
+      writeStarted.unlock()
 
       TaskSolver.futuresStartedCounter.incrementAndGet()
       Future {
@@ -161,13 +173,18 @@ class Engine(context: EngineContext) {
 
     TaskSolver.printStats()
 
+    println(
+      "Time measurement -----> Task processing done in " +
+        (taskFinishTimeSec - startTimeSec) + " seconds"
+    )
+
     deduplicateResultTable()
     completeHeldTasks()
     val dedupResult = deduplicateFinal(extractResultsFromTable(sinks))
     val allDoneTimeSec: Long
     = System.currentTimeMillis / 1000
 
-    logger.debug(
+    println(
       "Time measurement -----> Task processing: " +
         (taskFinishTimeSec - startTimeSec) + " seconds" +
         ", Deduplication: " + (allDoneTimeSec - taskFinishTimeSec) +
