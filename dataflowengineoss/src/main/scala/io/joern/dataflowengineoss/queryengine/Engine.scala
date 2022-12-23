@@ -3,6 +3,7 @@ package io.joern.dataflowengineoss.queryengine
 import io.joern.dataflowengineoss.DefaultSemantics
 import io.joern.dataflowengineoss.language._
 import io.joern.dataflowengineoss.passes.reachingdef.EdgeValidator
+import io.joern.dataflowengineoss.queryengine.TaskSolver.{doneTaskCounter, futuresEndedCounter, futuresStartedCounter, lastDoneTasks, totalTaskCounter}
 import io.joern.dataflowengineoss.semanticsloader.{FlowSemantic, Semantics}
 import io.shiftleft.codepropertygraph.generated.nodes._
 import io.shiftleft.codepropertygraph.generated.{EdgeTypes, Properties}
@@ -113,15 +114,17 @@ class Engine(context: EngineContext) {
     }
 
     def submitTasks(tasks: Vector[ReachableByTask], sources: Set[CfgNode]) = {
-      val (tasksToHold, tasksToSolve) = tasks.par.partition { t =>
-        val fingerprint = TaskFingerprint(t.sink, t.callSiteStack)
-        // We run tasks for all callDepths to be consistent
-        // TODO There is a possible optimization here: if we already know the results from
-        // another call-depth, we can jump straight to creation of new tasks.
-        started.exists(x => x.fingerprint == fingerprint && x.callDepth == t.callDepth)
-      }
-      held ++= tasksToHold
-      started ++= tasksToSolve
+      synchronized({
+        val (tasksToHold, tasksToSolve) = tasks.par.partition { t =>
+          val fingerprint = TaskFingerprint(t.sink, t.callSiteStack)
+          // We run tasks for all callDepths to be consistent
+          // TODO There is a possible optimization here: if we already know the results from
+          // another call-depth, we can jump straight to creation of new tasks.
+          started.exists(x => x.fingerprint == fingerprint && x.callDepth == t.callDepth)
+        }
+        held ++= tasksToHold
+        started ++= tasksToSolve
+
       TaskSolver.futuresStartedCounter.incrementAndGet()
       Future {
         tasksToSolve.foreach(t => {
@@ -133,15 +136,18 @@ class Engine(context: EngineContext) {
       }.onComplete(_ => {
         TaskSolver.futuresEndedCounter.incrementAndGet()
       })
+      })
     }
 
     def addResultsToMainTable(results: Vector[(TaskFingerprint, TableEntry)]): Unit = {
       results.groupBy(_._1).foreach { case (fingerprint, resultList) =>
         val entries = resultList.map(_._2).toList
-        mainResultTable.updateWith(fingerprint) {
-          case Some(list) => Some(list ++ entries)
-          case None       => Some(entries)
-        }
+        synchronized({
+          mainResultTable.updateWith(fingerprint) {
+            case Some(list) => Some(list ++ entries)
+            case None => Some(entries)
+          }
+        })
       }
     }
 
