@@ -127,9 +127,11 @@ class Engine(context: EngineContext) {
           held ++= Vector(task)
         } else {
           started.add(task.fingerprint)
+          TaskSolver.totalTaskCounter.incrementAndGet()
           val ts = new TaskSolver(task, context, sources)
           val resultsOfTask = ts.call()
           handleSummary(resultsOfTask)
+          TaskSolver.doneTaskCounter.incrementAndGet()
         }
       )
       }
