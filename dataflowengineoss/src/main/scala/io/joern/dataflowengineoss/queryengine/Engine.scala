@@ -114,16 +114,15 @@ class Engine(context: EngineContext) {
     }
 
     def submitTasks(tasks: Vector[ReachableByTask], sources: Set[CfgNode]) = {
-      synchronized({
         val (tasksToHold, tasksToSolve) = tasks.par.partition { t =>
           val fingerprint = TaskFingerprint(t.sink, t.callSiteStack)
           // We run tasks for all callDepths to be consistent
           // TODO There is a possible optimization here: if we already know the results from
           // another call-depth, we can jump straight to creation of new tasks.
-          started.exists(x => x.fingerprint == fingerprint && x.callDepth == t.callDepth)
+          synchronized(started.exists(x => x.fingerprint == fingerprint && x.callDepth == t.callDepth))
         }
-        held ++= tasksToHold
-        started ++= tasksToSolve
+      synchronized(held ++= tasksToHold)
+      synchronized(started ++= tasksToSolve)
 
       TaskSolver.futuresStartedCounter.incrementAndGet()
       Future {
@@ -135,7 +134,6 @@ class Engine(context: EngineContext) {
         )
       }.onComplete(_ => {
         TaskSolver.futuresEndedCounter.incrementAndGet()
-      })
       })
     }
 
