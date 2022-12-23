@@ -67,7 +67,7 @@ class Engine(context: EngineContext) {
     * and return them.
     */
   private val mainResultTable: mutable.Map[TaskFingerprint, List[TableEntry]] = mutable.Map()
-  private val started: mutable.Buffer[ReachableByTask]                        = mutable.Buffer()
+  private val started =  mutable.HashMap[String, ReachableByTask]()
   private val held: mutable.Buffer[ReachableByTask]                           = mutable.Buffer()
 
   private val lockStarted  = new ReentrantReadWriteLock()
@@ -124,17 +124,22 @@ class Engine(context: EngineContext) {
           // We run tasks for all callDepths to be consistent
           // TODO There is a possible optimization here: if we already know the results from
           // another call-depth, we can jump straight to creation of new tasks.
+          val key = fingerprint.toString + t.callDepth
           readStarted.lock()
-          val doesExist = started.exists(x => x.fingerprint == fingerprint && x.callDepth == t.callDepth)
+          val doesExist = started.contains(key)
           readStarted.unlock()
           doesExist
         }
 
       synchronized(held ++= tasksToHold)
 
-      writeStarted.lock()
-      started ++= tasksToSolve
-      writeStarted.unlock()
+      tasksToSolve.foreach( t => {
+        val fingerprint = TaskFingerprint(t.sink, t.callSiteStack)
+        val key = fingerprint.toString + t.callDepth
+        writeStarted.lock()
+        started.addOne(key, t)
+        writeStarted.unlock()
+      })
 
       TaskSolver.futuresStartedCounter.incrementAndGet()
       Future {
