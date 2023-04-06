@@ -61,6 +61,7 @@ class ImportCode[T <: Project](console: io.joern.console.Console[T]) extends Rep
 
   def llvm: Frontend = new Frontend("llvm", Languages.LLVM, "LLVM Bitcode Frontend")
   def php: Frontend  = new Frontend("php", Languages.PHP, "PHP bytecode frontend")
+  def ruby: Frontend  = new Frontend("ruby", Languages.RUBYSRC, "Ruby bytecode frontend")
 
   class Frontend(val name: String, val language: String, val description: String = "") {
     def cpgGeneratorForLanguage(
@@ -107,7 +108,7 @@ class ImportCode[T <: Project](console: io.joern.console.Console[T]) extends Rep
   }
 
   private def allFrontends: List[Frontend] =
-    List(c, cpp, ghidra, kotlin, java, jvm, javascript, golang, llvm, php, python, csharp)
+    List(c, cpp, ghidra, kotlin, java, jvm, javascript, golang, llvm, php, python, csharp, ruby)
 
   /** Provide an overview of the available CPG generators (frontends)
     */
