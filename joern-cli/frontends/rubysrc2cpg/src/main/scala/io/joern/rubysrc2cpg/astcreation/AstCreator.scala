@@ -738,9 +738,17 @@ class AstCreator(filename: String, global: Global) extends AstCreatorBase(filena
     Ast()
   }
 
-  def astForMultipleAssignmentExpressionContext(ctx: RubyParser.MultipleAssignmentExpressionContext): Ast = {
+  def astForMultipleLeftHandSideContext(ctx: RubyParser.MultipleLeftHandSideContext): Ast = {
     if (ctx == null) return Ast()
     Ast()
+  }
+
+  def astForMultipleAssignmentExpressionContext(ctx: RubyParser.MultipleAssignmentExpressionContext): Ast = {
+    if (ctx == null) return Ast()
+    val lhsAst = astForMultipleLeftHandSideContext(ctx.multipleLeftHandSide())
+    val rhsAst = astForMultipleRightHandSideContext(ctx.multipleRightHandSide())
+    Ast().withChildren(Seq[Ast](lhsAst, rhsAst._1))
+    //TODO Unit test to be added
   }
 
   def astForMultiplicativeExpressionContext(ctx: RubyParser.MultiplicativeExpressionContext): Ast = {
