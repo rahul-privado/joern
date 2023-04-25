@@ -457,7 +457,13 @@ class AstCreator(filename: String, global: Global) extends AstCreatorBase(filena
 
   def astForConditionalOperatorExpressionContext(ctx: RubyParser.ConditionalOperatorExpressionContext): Ast = {
     if (ctx == null) return Ast()
-    Ast()
+
+    val ifConditionAst = astForExpressionContext(ctx.expression().get(0))
+    val thenAst        = astForExpressionContext(ctx.expression().get(1))
+    val elseAst        = astForExpressionContext(ctx.expression().get(2))
+
+    val blockNode = NewBlock().typeFullName(Defines.Any)
+    Ast(blockNode).withChildren(Seq[Ast](ifConditionAst, thenAst, elseAst))
   }
 
   def astForEqualityExpressionContext(ctx: RubyParser.EqualityExpressionContext): Ast = {
@@ -472,7 +478,7 @@ class AstCreator(filename: String, global: Global) extends AstCreatorBase(filena
 
   def astForGroupingExpressionPrimaryContext(ctx: RubyParser.GroupingExpressionPrimaryContext): Ast = {
     if (ctx == null) return Ast()
-    Ast()
+    astForStatementsContext(ctx.compoundStatement().statements())
   }
 
   def astForHashConstructorPrimaryContext(ctx: RubyParser.HashConstructorPrimaryContext): Ast = {
