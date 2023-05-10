@@ -78,12 +78,12 @@ class AstCreator(filename: String, global: Global)
         if (ctx.LOCAL_VARIABLE_IDENTIFIER() != null) {
           val localVar  = ctx.LOCAL_VARIABLE_IDENTIFIER()
           val varSymbol = localVar.getSymbol()
-          val node      = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
+          val node      = identifierNode(localVar, varSymbol.getText, varSymbol.getText, rhsRetType, List(Defines.Any))
           Ast(node)
         } else if (ctx.CONSTANT_IDENTIFIER() != null) {
           val localVar  = ctx.CONSTANT_IDENTIFIER()
           val varSymbol = localVar.getSymbol()
-          val node      = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
+          val node      = identifierNode(localVar, varSymbol.getText, varSymbol.getText, rhsRetType, List(Defines.Any))
           Ast(node)
         } else {
           Ast()
