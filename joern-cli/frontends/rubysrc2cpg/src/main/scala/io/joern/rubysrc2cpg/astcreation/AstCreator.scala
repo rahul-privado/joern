@@ -37,6 +37,8 @@ class AstCreator(filename: String, global: Global)
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
+  var currentClassBeingProcessed = Defines.Any
+
   override def createAst(): BatchedUpdate.DiffGraphBuilder = {
     val charStream  = CharStreams.fromFileName(filename)
     val lexer       = new RubyLexer(charStream)
@@ -491,11 +493,15 @@ class AstCreator(filename: String, global: Global)
     val node       = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
     Ast(node)
     primaryAst
+    // TODO put a proper impementation here
   }
 
   def astForClassOrModuleReferenceContext(ctx: ClassOrModuleReferenceContext): Ast = {
     if (ctx.scopedConstantReference() != null) {
       astForScopedConstantReferenceContext(ctx.scopedConstantReference())
+    } else if (ctx.CONSTANT_IDENTIFIER() != null) {
+      currentClassBeingProcessed = ctx.getText
+      Ast()
     } else {
       Ast()
     }
@@ -506,6 +512,7 @@ class AstCreator(filename: String, global: Global)
     val astExprOfCommand    = astForExpressionOrCommandContext(ctx.classDefinition().expressionOrCommand())
     val astBodyStatement    = astForBodyStatementContext(ctx.classDefinition().bodyStatement())
 
+    currentClassBeingProcessed = Defines.Any
     Ast().withChildren(Seq[Ast](astClassOrModuleRef, astExprOfCommand, astBodyStatement))
   }
 
@@ -705,7 +712,7 @@ class AstCreator(filename: String, global: Global)
     val line   = localIdentifier.getSymbol().getLine()
     val callNode = NewCall()
       .name(localIdentifier.getText())
-      .methodFullName(MethodFullNames.UnknownFullName)
+      .methodFullName(currentClassBeingProcessed + "." + localIdentifier.getText())
       .signature(localIdentifier.getText())
       .typeFullName(MethodFullNames.UnknownFullName)
       .dispatchType(DispatchTypes.STATIC_DISPATCH)
