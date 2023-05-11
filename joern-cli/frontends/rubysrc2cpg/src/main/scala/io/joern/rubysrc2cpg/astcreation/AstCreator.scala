@@ -40,7 +40,7 @@ class AstCreator(filename: String, global: Global)
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private var rhsTypeNeeded = Defines.Any
+  private var rhsTypeDetermined = Defines.Any
 
   override def createAst(): BatchedUpdate.DiffGraphBuilder = {
     val charStream  = CharStreams.fromFileName(filename)
@@ -78,29 +78,36 @@ class AstCreator(filename: String, global: Global)
   }
 
   def setRHSType(rhsTypeIn: String): Unit = {
-    if (rhsTypeNeeded != Defines.Needed) return
-    rhsTypeNeeded = rhsTypeIn
+    if (rhsTypeDetermined != Defines.Needed) return
+    rhsTypeDetermined = rhsTypeIn
   }
-  def astForVariableIdentifierContext(ctx: VariableIdentifierContext, varTypeIn: String): Ast = {
+  def astForVariableIdentifierContext(ctx: VariableIdentifierContext): Ast = {
     val terminalNode = ctx.children.asScala.map(_.asInstanceOf[TerminalNode]).head
     val token        = terminalNode.getSymbol
     val variableName = token.getText
-    val varType = if (rhsTypeNeeded == Defines.Needed) {
+    val varType = if (rhsTypeDetermined == Defines.Needed) {
       // we are on the RHS
-      determineRHSType(variableName)
+      val ret = determineRHSType(variableName)
+      if (ret == variableName) {
+        // this is a class type. set the classnam
+        rhsTypeDetermined = ret
+        ret
+      } else {
+        variableName
+      }
     } else {
       // we are on the LHS
-      setVariableType(variableName, varTypeIn)
-      varTypeIn
+      setVariableType(variableName, rhsTypeDetermined)
+      rhsTypeDetermined
     }
 
-    val node = identifierNode(terminalNode, variableName, variableName, varType, List(varTypeIn))
+    val node = identifierNode(terminalNode, variableName, variableName, varType, List(varType))
     Ast(node)
   }
 
   def astForSingleLeftHandSideContext(ctx: SingleLeftHandSideContext, rhsRetType: String): Ast = ctx match {
     case ctx: VariableIdentifierOnlySingleLeftHandSideContext =>
-      astForVariableIdentifierContext(ctx.variableIdentifier(), rhsRetType)
+      astForVariableIdentifierContext(ctx.variableIdentifier())
     case ctx: PrimaryInsideBracketsSingleLeftHandSideContext => astForPrimaryContext(ctx.primary())
     case ctx: XdotySingleLeftHandSideContext =>
       val xAst = astForPrimaryContext(ctx.primary())
@@ -153,9 +160,9 @@ class AstCreator(filename: String, global: Global)
   }
 
   def astForSingleAssignmentExpressionContext(ctx: SingleAssignmentExpressionContext): Ast = {
-    rhsTypeNeeded = Defines.Needed
+    rhsTypeDetermined = Defines.Needed
     val (rightAst, rhsRetType) = astForMultipleRightHandSideContext(ctx.multipleRightHandSide())
-    val leftAst                = astForSingleLeftHandSideContext(ctx.singleLeftHandSide(), rhsTypeNeeded)
+    val leftAst                = astForSingleLeftHandSideContext(ctx.singleLeftHandSide(), rhsTypeDetermined)
     val callNode = NewCall()
       .name(ctx.op.getText)
       .code(ctx.op.getText)
@@ -868,7 +875,7 @@ class AstCreator(filename: String, global: Global)
 
   def astForSingletonObjextContext(ctx: SingletonObjectContext): Ast = {
     if (ctx.variableIdentifier() != null) {
-      astForVariableIdentifierContext(ctx.variableIdentifier(), Defines.Any)
+      astForVariableIdentifierContext(ctx.variableIdentifier())
     } else if (ctx.pseudoVariableIdentifier() != null) {
       Ast()
     } else if (ctx.expressionOrCommand() != null) {
@@ -1233,7 +1240,7 @@ class AstCreator(filename: String, global: Global)
 
   def astForVariableRefenceContext(ctx: RubyParser.VariableReferenceContext): Ast = {
     val ast = if (ctx.variableIdentifier() != null) {
-      astForVariableIdentifierContext(ctx.variableIdentifier(), Defines.Any)
+      astForVariableIdentifierContext(ctx.variableIdentifier())
     } else {
       astForPseudoVariableIdentifierContext(ctx.pseudoVariableIdentifier())
     }
