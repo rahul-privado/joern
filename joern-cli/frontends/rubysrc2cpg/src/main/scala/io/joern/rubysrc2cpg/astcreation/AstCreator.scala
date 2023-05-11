@@ -63,7 +63,7 @@ class AstCreator(filename: String, global: Global)
   protected def lineEnd(node: TerminalNode): Option[Integer]   = None
   protected def columnEnd(node: TerminalNode): Option[Integer] = None
 
-  def determineRHSType(varName: String): String = {
+  def determineVariableType(varName: String): String = {
     varToTypeMap.get(varName) match {
       case Some(value) =>
         value
@@ -85,21 +85,21 @@ class AstCreator(filename: String, global: Global)
     val terminalNode = ctx.children.asScala.map(_.asInstanceOf[TerminalNode]).head
     val token        = terminalNode.getSymbol
     val variableName = token.getText
-    val varType = if (rhsTypeDetermined == Defines.Needed) {
-      // we are on the RHS
-      val ret = determineRHSType(variableName)
-      if (ret == variableName) {
-        // this is a class type. set the classnam
-        rhsTypeDetermined = ret
-        ret
+    val varType =
+      if (rhsTypeDetermined == Defines.Needed) {
+        // we are on the RHS
+        rhsTypeDetermined = determineVariableType(variableName)
+        rhsTypeDetermined
       } else {
-        variableName
+        // we are on the LHS
+        val presentVarType = determineVariableType(variableName)
+        if (presentVarType == Defines.Any) {
+          setVariableType(variableName, rhsTypeDetermined)
+          rhsTypeDetermined
+        } else {
+          presentVarType
+        }
       }
-    } else {
-      // we are on the LHS
-      setVariableType(variableName, rhsTypeDetermined)
-      rhsTypeDetermined
-    }
 
     val node = identifierNode(terminalNode, variableName, variableName, varType, List(varType))
     Ast(node)
