@@ -13,6 +13,7 @@ class IdentifierTests extends RubyCode2CpgFixture {
         |a = 3
         |b = 4
         |c = a*b
+        |str = "somestring"
         |puts "Multiplication is : #{c}"
         |""".stripMargin)
 
@@ -20,6 +21,7 @@ class IdentifierTests extends RubyCode2CpgFixture {
       cpg.identifier.name("a").l.size shouldBe 3
       cpg.identifier.name("b").l.size shouldBe 3
       cpg.identifier.name("c").l.size shouldBe 2
+      cpg.identifier.name("str").l.size shouldBe 1
     }
 
     "recognise all literal nodes" in {
@@ -52,10 +54,11 @@ class IdentifierTests extends RubyCode2CpgFixture {
         |
         |p = Person. new
         |p.greet
+        |p.name = "newname"
         |""".stripMargin)
 
     "recognise all identifier and call nodes" in {
-      cpg.identifier.name("name").l.size shouldBe 2
+      cpg.identifier.name("name").l.size shouldBe 3
       cpg.identifier.name("age").l.size shouldBe 2
       cpg.identifier.name("@name").l.size shouldBe 2
       cpg.identifier.name("@age").l.size shouldBe 4
@@ -64,7 +67,7 @@ class IdentifierTests extends RubyCode2CpgFixture {
       cpg.call.name("greet").size shouldBe 2
       cpg.call.name("puts").size shouldBe 2
       cpg.call.name("have_birthday").size shouldBe 1
-      cpg.identifier.size shouldBe 13
+      cpg.identifier.size shouldBe 15
     }
   }
 

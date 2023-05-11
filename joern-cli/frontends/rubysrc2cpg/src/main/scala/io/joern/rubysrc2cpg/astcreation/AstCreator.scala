@@ -25,9 +25,9 @@ class AstCreator(filename: String, global: Global)
     val Number: String  = "number"
     val String: String  = "string"
     val Boolean: String = "boolean"
-    val Hash: String    = "hash"
     val Array: String   = "array"
     val Symbol: String  = "symbol"
+    val Needed: String  = "needed"
   }
 
   object MethodFullNames {
@@ -35,9 +35,12 @@ class AstCreator(filename: String, global: Global)
     val OperatorPrefix  = "<operator>."
   }
 
+  // variable name to type hash map
+  private val varToTypeMap = mutable.HashMap[String, String]()
+
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  var currentClassBeingProcessed = Defines.Any
+  private var rhsTypeNeeded = Defines.Any
 
   override def createAst(): BatchedUpdate.DiffGraphBuilder = {
     val charStream  = CharStreams.fromFileName(filename)
@@ -60,11 +63,38 @@ class AstCreator(filename: String, global: Global)
   protected def lineEnd(node: TerminalNode): Option[Integer]   = None
   protected def columnEnd(node: TerminalNode): Option[Integer] = None
 
-  def astForVariableIdentifierContext(ctx: VariableIdentifierContext, varType: String): Ast = {
+  def determineRHSType(varName: String): String = {
+    varToTypeMap.get(varName) match {
+      case Some(value) =>
+        value
+      case None =>
+        // unregistered RHS variable. Could not determine
+        Defines.Any
+    }
+  }
+
+  def setVariableType(varName: String, varType: String): Unit = {
+    varToTypeMap.update(varName, varType)
+  }
+
+  def setRHSType(rhsTypeIn: String): Unit = {
+    if (rhsTypeNeeded != Defines.Needed) return
+    rhsTypeNeeded = rhsTypeIn
+  }
+  def astForVariableIdentifierContext(ctx: VariableIdentifierContext, varTypeIn: String): Ast = {
     val terminalNode = ctx.children.asScala.map(_.asInstanceOf[TerminalNode]).head
     val token        = terminalNode.getSymbol
     val variableName = token.getText
-    val node         = identifierNode(terminalNode, variableName, variableName, varType, List(varType))
+    val varType = if (rhsTypeNeeded == Defines.Needed) {
+      // we are on the RHS
+      determineRHSType(variableName)
+    } else {
+      // we are on the LHS
+      setVariableType(variableName, varTypeIn)
+      varTypeIn
+    }
+
+    val node = identifierNode(terminalNode, variableName, variableName, varType, List(varTypeIn))
     Ast(node)
   }
 
@@ -123,8 +153,9 @@ class AstCreator(filename: String, global: Global)
   }
 
   def astForSingleAssignmentExpressionContext(ctx: SingleAssignmentExpressionContext): Ast = {
+    rhsTypeNeeded = Defines.Needed
     val (rightAst, rhsRetType) = astForMultipleRightHandSideContext(ctx.multipleRightHandSide())
-    val leftAst                = astForSingleLeftHandSideContext(ctx.singleLeftHandSide(), rhsRetType)
+    val leftAst                = astForSingleLeftHandSideContext(ctx.singleLeftHandSide(), rhsTypeNeeded)
     val callNode = NewCall()
       .name(ctx.op.getText)
       .code(ctx.op.getText)
@@ -153,6 +184,7 @@ class AstCreator(filename: String, global: Global)
       .asScala
       .map { substr =>
         {
+          setRHSType(Defines.String)
           NewLiteral()
             .code(substr.getText)
             .typeFullName(Defines.String)
@@ -242,6 +274,7 @@ class AstCreator(filename: String, global: Global)
   def astForSymbolContext(ctx: SymbolContext): Ast = {
     if (ctx.SYMBOL_LITERAL() != null) {
       val text = ctx.getText
+      setRHSType(Defines.String)
       val node = NewLiteral()
         .code(text)
         .typeFullName(Defines.String)
@@ -500,7 +533,8 @@ class AstCreator(filename: String, global: Global)
     if (ctx.scopedConstantReference() != null) {
       astForScopedConstantReferenceContext(ctx.scopedConstantReference())
     } else if (ctx.CONSTANT_IDENTIFIER() != null) {
-      currentClassBeingProcessed = ctx.getText
+      // this will resolve types of identifiers with classname to the classname
+      setVariableType(ctx.getText, ctx.getText)
       Ast()
     } else {
       Ast()
@@ -512,7 +546,6 @@ class AstCreator(filename: String, global: Global)
     val astExprOfCommand    = astForExpressionOrCommandContext(ctx.classDefinition().expressionOrCommand())
     val astBodyStatement    = astForBodyStatementContext(ctx.classDefinition().bodyStatement())
 
-    currentClassBeingProcessed = Defines.Any
     Ast().withChildren(Seq[Ast](astClassOrModuleRef, astExprOfCommand, astBodyStatement))
   }
 
@@ -685,6 +718,7 @@ class AstCreator(filename: String, global: Global)
     val blockAst  = Ast(blockNode)
     if (ctx.literal().numericLiteral() != null) {
       val text = ctx.getText
+      setRHSType(Defines.Number)
       val node = NewLiteral()
         .code(text)
         .typeFullName(Defines.Number)
@@ -692,13 +726,23 @@ class AstCreator(filename: String, global: Global)
       blockAst.withChild(Ast(node))
     } else if (ctx.literal().SINGLE_QUOTED_STRING_LITERAL() != null) {
       val text = ctx.getText
+      setRHSType(Defines.String)
       val node = NewLiteral()
         .code(text)
         .typeFullName(Defines.String)
         .dynamicTypeHintFullName(List(Defines.String))
       blockAst.withChild(Ast(node))
+    } else if (ctx.literal().DOUBLE_QUOTED_STRING_CHARACTER_SEQUENCE() != null) {
+      val text = ctx.literal().DOUBLE_QUOTED_STRING_CHARACTER_SEQUENCE().getText
+      setRHSType(Defines.String)
+      val node = NewLiteral()
+        .code(text)
+        .typeFullName(Defines.String)
+        .dynamicTypeHintFullName(List(Defines.String))
+      blockAst.withChild(Ast(node))
+    } else if (ctx.literal().symbol() != null) {
+      astForSymbolContext(ctx.literal().symbol())
     } else {
-      // double quoted string literal
       Ast()
     }
   }
@@ -712,7 +756,7 @@ class AstCreator(filename: String, global: Global)
     val line   = localIdentifier.getSymbol().getLine()
     val callNode = NewCall()
       .name(localIdentifier.getText())
-      .methodFullName(currentClassBeingProcessed + "." + localIdentifier.getText())
+      .methodFullName(Defines.Any)
       .signature(localIdentifier.getText())
       .typeFullName(MethodFullNames.UnknownFullName)
       .dispatchType(DispatchTypes.STATIC_DISPATCH)
