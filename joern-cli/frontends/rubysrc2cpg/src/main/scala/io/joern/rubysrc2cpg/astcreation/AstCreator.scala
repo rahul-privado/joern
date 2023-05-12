@@ -39,8 +39,9 @@ class AstCreator(filename: String, global: Global)
 
   // TODO make block scope
   // variable name to type hash map
-  private val varToTypeMap      = mutable.HashMap[String, String]()
-  private var rhsTypeDetermined = Defines.Any
+  private val varToTypeMap           = mutable.HashMap[String, String]()
+  private var rhsTypeDetermined      = Defines.Any
+  private var presentClassBeingBuilt = Defines.Any
   // TODO end of make block scope
 
   override def createAst(): BatchedUpdate.DiffGraphBuilder = {
@@ -552,6 +553,7 @@ class AstCreator(filename: String, global: Global)
     } else if (ctx.CONSTANT_IDENTIFIER() != null) {
       // this will resolve types of identifiers with classname to the classname
       setVariableType(ctx.getText, ctx.getText)
+      presentClassBeingBuilt = ctx.getText
       Ast()
     } else {
       Ast()
@@ -562,6 +564,7 @@ class AstCreator(filename: String, global: Global)
     val astClassOrModuleRef = astForClassOrModuleReferenceContext(ctx.classDefinition().classOrModuleReference())
     val astExprOfCommand    = astForExpressionOrCommandContext(ctx.classDefinition().expressionOrCommand())
     val astBodyStatement    = astForBodyStatementContext(ctx.classDefinition().bodyStatement())
+    presentClassBeingBuilt = Defines.Any
 
     Ast().withChildren(Seq[Ast](astClassOrModuleRef, astExprOfCommand, astBodyStatement))
   }
@@ -773,7 +776,7 @@ class AstCreator(filename: String, global: Global)
     val line   = localIdentifier.getSymbol().getLine()
     val callNode = NewCall()
       .name(localIdentifier.getText())
-      .methodFullName(Defines.Any)
+      .methodFullName(presentClassBeingBuilt + "." + localIdentifier.getText)
       .signature(localIdentifier.getText())
       .typeFullName(MethodFullNames.UnknownFullName)
       .dispatchType(DispatchTypes.STATIC_DISPATCH)
@@ -972,6 +975,7 @@ class AstCreator(filename: String, global: Global)
   def astForModuleDefinitionPrimaryContext(ctx: ModuleDefinitionPrimaryContext): Ast = {
     val referenceAst = astForClassOrModuleReferenceContext(ctx.moduleDefinition().classOrModuleReference())
     val bodyStmtAst  = astForBodyStatementContext(ctx.moduleDefinition().bodyStatement())
+    presentClassBeingBuilt = Defines.Any
     referenceAst.withChild(bodyStmtAst)
   }
 
