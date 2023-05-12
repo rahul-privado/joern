@@ -38,14 +38,14 @@ class AstCreator(filename: String, global: Global)
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  // TODO make block scope
-  // variable name to type hash map
-  private val varToTypeMap              = mutable.HashMap[String, String]()
-  private var rhsTypeDetermined         = Defines.Any
-  private var presentClassOrInstance    = Defines.Any
-  private var lastIdentiferAccessedType = Defines.Any
-  // TODO end of make block scope
-
+  class CompoundStmtTrackers {
+    // variable name to type hash map
+    val varToTypeMap              = mutable.HashMap[String, String]()
+    var rhsTypeDetermined         = Defines.Any
+    var presentClassOrInstance    = Defines.Any
+    var lastIdentiferAccessedType = Defines.Any
+  }
+  private val csTrackers       = new CompoundStmtTrackers()
   private val inbuiltFunctions = Set("puts", "print")
 
   override def createAst(): BatchedUpdate.DiffGraphBuilder = {
@@ -70,7 +70,7 @@ class AstCreator(filename: String, global: Global)
   protected def columnEnd(node: TerminalNode): Option[Integer] = None
 
   def determineVariableType(varName: String): String = {
-    varToTypeMap.get(varName) match {
+    csTrackers.varToTypeMap.get(varName) match {
       case Some(value) =>
         value
       case None =>
@@ -80,34 +80,34 @@ class AstCreator(filename: String, global: Global)
   }
 
   def setVariableType(varName: String, varType: String): Unit = {
-    varToTypeMap.update(varName, varType)
+    csTrackers.varToTypeMap.update(varName, varType)
   }
 
   def setRHSType(rhsTypeIn: String): Unit = {
-    if (rhsTypeDetermined != Defines.Needed) return
-    rhsTypeDetermined = rhsTypeIn
+    if (csTrackers.rhsTypeDetermined != Defines.Needed) return
+    csTrackers.rhsTypeDetermined = rhsTypeIn
   }
   def astForVariableIdentifierContext(ctx: VariableIdentifierContext): Ast = {
     val terminalNode = ctx.children.asScala.map(_.asInstanceOf[TerminalNode]).head
     val token        = terminalNode.getSymbol
     val variableName = token.getText
     val varType =
-      if (rhsTypeDetermined == Defines.Needed) {
+      if (csTrackers.rhsTypeDetermined == Defines.Needed) {
         // we are on the RHS
-        rhsTypeDetermined = determineVariableType(variableName)
-        rhsTypeDetermined
+        csTrackers.rhsTypeDetermined = determineVariableType(variableName)
+        csTrackers.rhsTypeDetermined
       } else {
         // we are on the LHS
         val presentVarType = determineVariableType(variableName)
         if (presentVarType == Defines.Any) {
-          setVariableType(variableName, rhsTypeDetermined)
-          rhsTypeDetermined
+          setVariableType(variableName, csTrackers.rhsTypeDetermined)
+          csTrackers.rhsTypeDetermined
         } else {
           presentVarType
         }
       }
 
-    lastIdentiferAccessedType = varType
+    csTrackers.lastIdentiferAccessedType = varType
     val node = identifierNode(terminalNode, variableName, variableName, varType, List(varType))
     Ast(node)
   }
@@ -122,13 +122,13 @@ class AstCreator(filename: String, global: Global)
         if (ctx.LOCAL_VARIABLE_IDENTIFIER() != null) {
           val localVar  = ctx.LOCAL_VARIABLE_IDENTIFIER()
           val varSymbol = localVar.getSymbol()
-          lastIdentiferAccessedType = rhsRetType
+          csTrackers.lastIdentiferAccessedType = rhsRetType
           val node = identifierNode(localVar, varSymbol.getText, varSymbol.getText, rhsRetType, List(Defines.Any))
           Ast(node)
         } else if (ctx.CONSTANT_IDENTIFIER() != null) {
           val localVar  = ctx.CONSTANT_IDENTIFIER()
           val varSymbol = localVar.getSymbol()
-          lastIdentiferAccessedType = rhsRetType
+          csTrackers.lastIdentiferAccessedType = rhsRetType
           val node = identifierNode(localVar, varSymbol.getText, varSymbol.getText, rhsRetType, List(Defines.Any))
           Ast(node)
         } else {
@@ -169,9 +169,9 @@ class AstCreator(filename: String, global: Global)
   }
 
   def astForSingleAssignmentExpressionContext(ctx: SingleAssignmentExpressionContext): Ast = {
-    rhsTypeDetermined = Defines.Needed
+    csTrackers.rhsTypeDetermined = Defines.Needed
     val (rightAst, rhsRetType) = astForMultipleRightHandSideContext(ctx.multipleRightHandSide())
-    val leftAst                = astForSingleLeftHandSideContext(ctx.singleLeftHandSide(), rhsTypeDetermined)
+    val leftAst                = astForSingleLeftHandSideContext(ctx.singleLeftHandSide(), csTrackers.rhsTypeDetermined)
     val callNode = NewCall()
       .name(ctx.op.getText)
       .code(ctx.op.getText)
@@ -539,7 +539,7 @@ class AstCreator(filename: String, global: Global)
     val primaryAst = astForPrimaryContext(ctx.primary())
     val localVar   = ctx.CONSTANT_IDENTIFIER()
     val varSymbol  = localVar.getSymbol()
-    lastIdentiferAccessedType = Defines.Any
+    csTrackers.lastIdentiferAccessedType = Defines.Any
     val node     = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
     val constAst = Ast(node)
     primaryAst.withChild(constAst)
@@ -549,7 +549,7 @@ class AstCreator(filename: String, global: Global)
     val primaryAst = astForPrimaryContext(ctx.primary())
     val localVar   = ctx.CONSTANT_IDENTIFIER()
     val varSymbol  = localVar.getSymbol()
-    lastIdentiferAccessedType = Defines.Any
+    csTrackers.lastIdentiferAccessedType = Defines.Any
     val node = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
     Ast(node)
     primaryAst
@@ -562,7 +562,7 @@ class AstCreator(filename: String, global: Global)
     } else if (ctx.CONSTANT_IDENTIFIER() != null) {
       // this will resolve types of identifiers with classname to the classname
       setVariableType(ctx.getText, ctx.getText)
-      presentClassOrInstance = ctx.getText
+      csTrackers.presentClassOrInstance = ctx.getText
       Ast()
     } else {
       Ast()
@@ -573,7 +573,7 @@ class AstCreator(filename: String, global: Global)
     val astClassOrModuleRef = astForClassOrModuleReferenceContext(ctx.classDefinition().classOrModuleReference())
     val astExprOfCommand    = astForExpressionOrCommandContext(ctx.classDefinition().expressionOrCommand())
     val astBodyStatement    = astForBodyStatementContext(ctx.classDefinition().bodyStatement())
-    presentClassOrInstance = Defines.Any
+    csTrackers.presentClassOrInstance = Defines.Any
 
     Ast().withChildren(Seq[Ast](astClassOrModuleRef, astExprOfCommand, astBodyStatement))
   }
@@ -783,23 +783,26 @@ class AstCreator(filename: String, global: Global)
   def astForCallNode(localIdentifier: TerminalNode): Ast = {
     val column = localIdentifier.getSymbol().getCharPositionInLine()
     val line   = localIdentifier.getSymbol().getLine()
-    val className = if (presentClassOrInstance != Defines.Any) {
-      presentClassOrInstance
-    } else if (lastIdentiferAccessedType != Defines.Any) {
-      lastIdentiferAccessedType
+    val className = if (csTrackers.presentClassOrInstance != Defines.Any) {
+      csTrackers.presentClassOrInstance
+    } else if (csTrackers.lastIdentiferAccessedType != Defines.Any) {
+      csTrackers.lastIdentiferAccessedType
+    } else {
+      Defines.Any
+    }
+
+    val methodName = localIdentifier.getText
+    val mfName = if (inbuiltFunctions.contains(methodName)) {
+      "<inbuilt>." + localIdentifier.getText
+    } else if (className != Defines.Any) {
+      className + "." + localIdentifier.getText
     } else {
       MethodFullNames.UnknownFullName
     }
 
-    val methodName = localIdentifier.getText
-    val mfNamePrefix = if (inbuiltFunctions.contains(methodName)) {
-      "<inbuilt>."
-    } else {
-      className + "."
-    }
     val callNode = NewCall()
       .name(methodName)
-      .methodFullName(mfNamePrefix + localIdentifier.getText)
+      .methodFullName(mfName)
       .signature(methodName)
       .typeFullName(MethodFullNames.UnknownFullName)
       .dispatchType(DispatchTypes.STATIC_DISPATCH)
@@ -891,13 +894,13 @@ class AstCreator(filename: String, global: Global)
     if (ctx.LOCAL_VARIABLE_IDENTIFIER() != null) {
       val localVar  = ctx.LOCAL_VARIABLE_IDENTIFIER()
       val varSymbol = localVar.getSymbol()
-      lastIdentiferAccessedType = Defines.Any
+      csTrackers.lastIdentiferAccessedType = Defines.Any
       val node = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
       Ast(node)
     } else if (ctx.CONSTANT_IDENTIFIER() != null) {
       val localVar  = ctx.CONSTANT_IDENTIFIER()
       val varSymbol = localVar.getSymbol()
-      lastIdentiferAccessedType = Defines.Any
+      csTrackers.lastIdentiferAccessedType = Defines.Any
       val node = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
       Ast(node)
     } else {
@@ -973,7 +976,7 @@ class AstCreator(filename: String, global: Global)
     val seqNodes = localVarList
       .map(localVar => {
         val varSymbol = localVar.getSymbol()
-        lastIdentiferAccessedType = Defines.Any
+        csTrackers.lastIdentiferAccessedType = Defines.Any
         identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
       })
       .toSeq
@@ -1001,7 +1004,7 @@ class AstCreator(filename: String, global: Global)
   def astForModuleDefinitionPrimaryContext(ctx: ModuleDefinitionPrimaryContext): Ast = {
     val referenceAst = astForClassOrModuleReferenceContext(ctx.moduleDefinition().classOrModuleReference())
     val bodyStmtAst  = astForBodyStatementContext(ctx.moduleDefinition().bodyStatement())
-    presentClassOrInstance = Defines.Any
+    csTrackers.presentClassOrInstance = Defines.Any
     referenceAst.withChild(bodyStmtAst)
   }
 
@@ -1098,7 +1101,7 @@ class AstCreator(filename: String, global: Global)
   def astForSimpleScopedConstantReferencePrimaryContext(ctx: SimpleScopedConstantReferencePrimaryContext): Ast = {
     val localVar  = ctx.CONSTANT_IDENTIFIER()
     val varSymbol = localVar.getSymbol()
-    lastIdentiferAccessedType = Defines.Any
+    csTrackers.lastIdentiferAccessedType = Defines.Any
     val node      = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
     val blockNode = NewBlock().typeFullName(Defines.Any)
     Ast(blockNode).withChild(Ast(node))
@@ -1275,7 +1278,7 @@ class AstCreator(filename: String, global: Global)
       else return Ast()
     }
 
-    lastIdentiferAccessedType = Defines.Any
+    csTrackers.lastIdentiferAccessedType = Defines.Any
     val astNode = identifierNode(node, ctx.getText, ctx.getText, Defines.Any, List(Defines.Any))
     Ast(astNode)
   }
