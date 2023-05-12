@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory
 import overflowdb.BatchedUpdate
 
 import java.util
+import scala.collection.immutable.HashSet
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.CollectionHasAsScala
@@ -39,10 +40,13 @@ class AstCreator(filename: String, global: Global)
 
   // TODO make block scope
   // variable name to type hash map
-  private val varToTypeMap           = mutable.HashMap[String, String]()
-  private var rhsTypeDetermined      = Defines.Any
-  private var presentClassBeingBuilt = Defines.Any
+  private val varToTypeMap              = mutable.HashMap[String, String]()
+  private var rhsTypeDetermined         = Defines.Any
+  private var presentClassOrInstance    = Defines.Any
+  private var lastIdentiferAccessedType = Defines.Any
   // TODO end of make block scope
+
+  private val inbuiltFunctions = Set("puts", "print")
 
   override def createAst(): BatchedUpdate.DiffGraphBuilder = {
     val charStream  = CharStreams.fromFileName(filename)
@@ -103,6 +107,7 @@ class AstCreator(filename: String, global: Global)
         }
       }
 
+    lastIdentiferAccessedType = varType
     val node = identifierNode(terminalNode, variableName, variableName, varType, List(varType))
     Ast(node)
   }
@@ -117,12 +122,14 @@ class AstCreator(filename: String, global: Global)
         if (ctx.LOCAL_VARIABLE_IDENTIFIER() != null) {
           val localVar  = ctx.LOCAL_VARIABLE_IDENTIFIER()
           val varSymbol = localVar.getSymbol()
-          val node      = identifierNode(localVar, varSymbol.getText, varSymbol.getText, rhsRetType, List(Defines.Any))
+          lastIdentiferAccessedType = rhsRetType
+          val node = identifierNode(localVar, varSymbol.getText, varSymbol.getText, rhsRetType, List(Defines.Any))
           Ast(node)
         } else if (ctx.CONSTANT_IDENTIFIER() != null) {
           val localVar  = ctx.CONSTANT_IDENTIFIER()
           val varSymbol = localVar.getSymbol()
-          val node      = identifierNode(localVar, varSymbol.getText, varSymbol.getText, rhsRetType, List(Defines.Any))
+          lastIdentiferAccessedType = rhsRetType
+          val node = identifierNode(localVar, varSymbol.getText, varSymbol.getText, rhsRetType, List(Defines.Any))
           Ast(node)
         } else {
           Ast()
@@ -532,8 +539,9 @@ class AstCreator(filename: String, global: Global)
     val primaryAst = astForPrimaryContext(ctx.primary())
     val localVar   = ctx.CONSTANT_IDENTIFIER()
     val varSymbol  = localVar.getSymbol()
-    val node       = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
-    val constAst   = Ast(node)
+    lastIdentiferAccessedType = Defines.Any
+    val node     = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
+    val constAst = Ast(node)
     primaryAst.withChild(constAst)
   }
 
@@ -541,7 +549,8 @@ class AstCreator(filename: String, global: Global)
     val primaryAst = astForPrimaryContext(ctx.primary())
     val localVar   = ctx.CONSTANT_IDENTIFIER()
     val varSymbol  = localVar.getSymbol()
-    val node       = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
+    lastIdentiferAccessedType = Defines.Any
+    val node = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
     Ast(node)
     primaryAst
     // TODO put a proper impementation here
@@ -553,7 +562,7 @@ class AstCreator(filename: String, global: Global)
     } else if (ctx.CONSTANT_IDENTIFIER() != null) {
       // this will resolve types of identifiers with classname to the classname
       setVariableType(ctx.getText, ctx.getText)
-      presentClassBeingBuilt = ctx.getText
+      presentClassOrInstance = ctx.getText
       Ast()
     } else {
       Ast()
@@ -564,7 +573,7 @@ class AstCreator(filename: String, global: Global)
     val astClassOrModuleRef = astForClassOrModuleReferenceContext(ctx.classDefinition().classOrModuleReference())
     val astExprOfCommand    = astForExpressionOrCommandContext(ctx.classDefinition().expressionOrCommand())
     val astBodyStatement    = astForBodyStatementContext(ctx.classDefinition().bodyStatement())
-    presentClassBeingBuilt = Defines.Any
+    presentClassOrInstance = Defines.Any
 
     Ast().withChildren(Seq[Ast](astClassOrModuleRef, astExprOfCommand, astBodyStatement))
   }
@@ -774,13 +783,27 @@ class AstCreator(filename: String, global: Global)
   def astForCallNode(localIdentifier: TerminalNode): Ast = {
     val column = localIdentifier.getSymbol().getCharPositionInLine()
     val line   = localIdentifier.getSymbol().getLine()
+    val className = if (presentClassOrInstance != Defines.Any) {
+      presentClassOrInstance
+    } else if (lastIdentiferAccessedType != Defines.Any) {
+      lastIdentiferAccessedType
+    } else {
+      MethodFullNames.UnknownFullName
+    }
+
+    val methodName = localIdentifier.getText
+    val mfNamePrefix = if (inbuiltFunctions.contains(methodName)) {
+      "<inbuilt>."
+    } else {
+      className + "."
+    }
     val callNode = NewCall()
-      .name(localIdentifier.getText())
-      .methodFullName(presentClassBeingBuilt + "." + localIdentifier.getText)
-      .signature(localIdentifier.getText())
+      .name(methodName)
+      .methodFullName(mfNamePrefix + localIdentifier.getText)
+      .signature(methodName)
       .typeFullName(MethodFullNames.UnknownFullName)
       .dispatchType(DispatchTypes.STATIC_DISPATCH)
-      .code(localIdentifier.getText())
+      .code(methodName)
       .lineNumber(line)
       .columnNumber(column)
     callAst(callNode)
@@ -868,12 +891,14 @@ class AstCreator(filename: String, global: Global)
     if (ctx.LOCAL_VARIABLE_IDENTIFIER() != null) {
       val localVar  = ctx.LOCAL_VARIABLE_IDENTIFIER()
       val varSymbol = localVar.getSymbol()
-      val node      = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
+      lastIdentiferAccessedType = Defines.Any
+      val node = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
       Ast(node)
     } else if (ctx.CONSTANT_IDENTIFIER() != null) {
       val localVar  = ctx.CONSTANT_IDENTIFIER()
       val varSymbol = localVar.getSymbol()
-      val node      = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
+      lastIdentiferAccessedType = Defines.Any
+      val node = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
       Ast(node)
     } else {
       Ast()
@@ -948,6 +973,7 @@ class AstCreator(filename: String, global: Global)
     val seqNodes = localVarList
       .map(localVar => {
         val varSymbol = localVar.getSymbol()
+        lastIdentiferAccessedType = Defines.Any
         identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
       })
       .toSeq
@@ -975,7 +1001,7 @@ class AstCreator(filename: String, global: Global)
   def astForModuleDefinitionPrimaryContext(ctx: ModuleDefinitionPrimaryContext): Ast = {
     val referenceAst = astForClassOrModuleReferenceContext(ctx.moduleDefinition().classOrModuleReference())
     val bodyStmtAst  = astForBodyStatementContext(ctx.moduleDefinition().bodyStatement())
-    presentClassBeingBuilt = Defines.Any
+    presentClassOrInstance = Defines.Any
     referenceAst.withChild(bodyStmtAst)
   }
 
@@ -1072,6 +1098,7 @@ class AstCreator(filename: String, global: Global)
   def astForSimpleScopedConstantReferencePrimaryContext(ctx: SimpleScopedConstantReferencePrimaryContext): Ast = {
     val localVar  = ctx.CONSTANT_IDENTIFIER()
     val varSymbol = localVar.getSymbol()
+    lastIdentiferAccessedType = Defines.Any
     val node      = identifierNode(localVar, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
     val blockNode = NewBlock().typeFullName(Defines.Any)
     Ast(blockNode).withChild(Ast(node))
@@ -1248,6 +1275,7 @@ class AstCreator(filename: String, global: Global)
       else return Ast()
     }
 
+    lastIdentiferAccessedType = Defines.Any
     val astNode = identifierNode(node, ctx.getText, ctx.getText, Defines.Any, List(Defines.Any))
     Ast(astNode)
   }
