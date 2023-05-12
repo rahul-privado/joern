@@ -35,12 +35,13 @@ class AstCreator(filename: String, global: Global)
     val OperatorPrefix  = "<operator>."
   }
 
-  // variable name to type hash map
-  private val varToTypeMap = mutable.HashMap[String, String]()
-
   private val logger = LoggerFactory.getLogger(this.getClass)
 
+  // TODO make block scope
+  // variable name to type hash map
+  private val varToTypeMap      = mutable.HashMap[String, String]()
   private var rhsTypeDetermined = Defines.Any
+  // TODO end of make block scope
 
   override def createAst(): BatchedUpdate.DiffGraphBuilder = {
     val charStream  = CharStreams.fromFileName(filename)
