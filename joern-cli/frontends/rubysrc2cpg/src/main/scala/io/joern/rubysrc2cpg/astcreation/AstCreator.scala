@@ -398,8 +398,8 @@ class AstCreator(filename: String, global: Global)
 
   def astForStatementsContext(ctx: StatementsContext): Ast = {
     if (ctx == null) return Ast()
-    val oldCSTrackers = csTrackers
-    csTrackers = new CompoundStmtTrackers()
+    // val oldCSTrackers = csTrackers
+    // csTrackers = new CompoundStmtTrackers()
 
     val blockNode = NewBlock().typeFullName(Defines.Any)
     val asts = ctx
@@ -410,7 +410,7 @@ class AstCreator(filename: String, global: Global)
       })
       .toSeq
 
-    csTrackers = oldCSTrackers
+    // csTrackers = oldCSTrackers
     Ast(blockNode).withChildren(asts)
   }
 
