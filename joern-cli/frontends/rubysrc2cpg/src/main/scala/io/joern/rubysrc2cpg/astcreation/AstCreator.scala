@@ -279,6 +279,9 @@ class AstCreator(filename: String, global: Global)
   }
 
   def astForSymbolContext(ctx: SymbolContext): Ast = {
+    val blockNode = NewBlock().typeFullName(Defines.Any)
+    val blockAst  = Ast(blockNode)
+
     if (ctx.SYMBOL_LITERAL() != null) {
       val text = ctx.getText
       setRHSType(Defines.String)
@@ -286,9 +289,15 @@ class AstCreator(filename: String, global: Global)
         .code(text)
         .typeFullName(Defines.String)
         .dynamicTypeHintFullName(List(Defines.String))
-      Ast(node)
+      blockAst.withChild(Ast(node))
     } else if (ctx.SINGLE_QUOTED_STRING_LITERAL() != null) {
-      Ast()
+      val text = ctx.getText
+      setRHSType(Defines.String)
+      val node = NewLiteral()
+        .code(text)
+        .typeFullName(Defines.String)
+        .dynamicTypeHintFullName(List(Defines.String))
+      blockAst.withChild(Ast(node))
     } else {
       Ast()
     }
