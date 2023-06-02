@@ -1,11 +1,13 @@
 package io.joern.rubysrc2cpg
 
+import io.joern.dataflowengineoss.layers.dataflows.{OssDataFlow, OssDataFlowOptions}
 import io.joern.rubysrc2cpg.passes.AstCreationPass
 import io.joern.x2cpg.X2Cpg.withNewEmptyCpg
 import io.joern.x2cpg.X2CpgFrontend
 import io.joern.x2cpg.passes.frontend.{MetaDataPass, TypeNodePass}
 import io.shiftleft.codepropertygraph.Cpg
 import io.shiftleft.codepropertygraph.generated.Languages
+import io.shiftleft.semanticcpg.layers.LayerCreatorContext
 import org.slf4j.LoggerFactory
 
 import scala.util.Try
@@ -20,6 +22,7 @@ class RubySrc2Cpg extends X2CpgFrontend[Config] {
       val astCreationPass = new AstCreationPass(config.inputPath, cpg)
       astCreationPass.createAndApply()
       new TypeNodePass(astCreationPass.allUsedTypes(), cpg).createAndApply()
+      new OssDataFlow(new OssDataFlowOptions()).run(new LayerCreatorContext(cpg))
     }
   }
 }
