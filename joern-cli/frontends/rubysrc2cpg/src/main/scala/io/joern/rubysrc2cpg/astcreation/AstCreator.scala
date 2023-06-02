@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory
 import overflowdb.BatchedUpdate
 
 import java.util
+import scala.::
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
@@ -633,15 +634,11 @@ class AstCreator(filename: String, global: Global)
         })
         .toList
 
-    val asts =
-      if (ctx.splattingArgument() != null) {
-        expAsts ++ astForSplattingArgumentContext(ctx.splattingArgument())
-      } else {
-        expAsts
-      }
-
-    val blockNode = NewBlock().typeFullName(Defines.Any)
-    Seq(blockAst(blockNode, asts))
+    if (ctx.splattingArgument() != null) {
+      expAsts ++ astForSplattingArgumentContext(ctx.splattingArgument())
+    } else {
+      expAsts
+    }
   }
 
   def astForCaseExpressionPrimaryContext(ctx: CaseExpressionPrimaryContext): Seq[Ast] = {
@@ -649,19 +646,17 @@ class AstCreator(filename: String, global: Global)
       .caseExpression()
       .whenClause()
       .asScala
-      .map(wh => {
-        val whenNode = NewControlStructure()
-          .controlStructureType(ControlStructureTypes.IF)
+      .flatMap(wh => {
+        val jumpTarget = NewJumpTarget()
+          .name(wh.WHEN().getText)
           .code(wh.getText())
           .lineNumber(wh.WHEN().getSymbol.getLine)
           .columnNumber(wh.WHEN().getSymbol.getCharPositionInLine)
 
         val whenACondAsts = astForWhenArgumentContext(wh.whenArgument())
         val thenAsts      = astForThenClauseContext(wh.thenClause())
-        Ast(whenNode)
-          .withChildren(whenACondAsts)
-          .withConditionEdge(whenNode, whenACondAsts.head.nodes.head)
-          .withChildren(thenAsts)
+        val asts          = whenACondAsts ++ thenAsts
+        asts.toList.prepended(Ast(jumpTarget))
       })
       .toList
 
@@ -679,6 +674,7 @@ class AstCreator(filename: String, global: Global)
       }
     }
 
+    val blockNode = NewBlock().typeFullName(Defines.Any)
     val caseAsts =
       if (ctx.caseExpression().elseClause() != null) {
         val elseAst = astForElseClauseContext(ctx.caseExpression().elseClause())
@@ -687,7 +683,7 @@ class AstCreator(filename: String, global: Global)
         whenThenAstsList
       }
 
-    Seq(controlStructureAst(caseNode, condAst, caseAsts))
+    Seq(controlStructureAst(caseNode, condAst, Seq(blockAst(blockNode, caseAsts))))
   }
 
   def astForChainedInvocationPrimaryContext(ctx: ChainedInvocationPrimaryContext): Seq[Ast] = {
@@ -971,16 +967,13 @@ class AstCreator(filename: String, global: Global)
 
   def astForElseClauseContext(ctx: ElseClauseContext): Seq[Ast] = {
     if (ctx == null) return Seq(Ast())
-    val elseNode = NewControlStructure()
-      .controlStructureType(ControlStructureTypes.ELSE)
+    val jumpTarget = NewJumpTarget()
+      .name(ctx.ELSE().getText)
       .code(ctx.getText())
       .lineNumber(ctx.ELSE().getSymbol.getLine)
       .columnNumber(ctx.ELSE().getSymbol.getCharPositionInLine)
-    val stmtsAsts = astForStatementsContext(ctx.compoundStatement().statements())
-    Seq(
-      Ast(elseNode)
-        .withChildren(stmtsAsts)
-    )
+    val stmtsAsts = astForStatementsContext(ctx.compoundStatement().statements()).toList
+    stmtsAsts.prepended(Ast(jumpTarget))
   }
 
   def astForIfExpressionContext(ctx: IfExpressionContext): Seq[Ast] = {
