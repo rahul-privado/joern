@@ -7,6 +7,32 @@ import io.shiftleft.semanticcpg.language._
 
 class ControlStructureTests extends CCodeToCpgSuite(FileDefaults.CPP_EXT) {
 
+  "ControlStructureTest0" should {
+    val cpg = code(
+      """
+        |int main(){
+        |        int x = 2 ;
+        |        int b = x ;
+        |
+        |        switch (b) {
+        |                case 1:
+        |                        b = 3;
+        |                        break ;
+        |                default:
+        |                        b = 3;
+        |        }
+        |
+        |        return 0 ;
+        |}
+        |
+        |
+        |""".stripMargin)
+
+    "should identify `try` block" in {
+      cpg.method("foo").tryBlock.code.l shouldBe List("try")
+    }
+  }
+
   "ControlStructureTest1" should {
     val cpg = code("""
         |void foo(int x, int y) {

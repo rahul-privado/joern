@@ -648,15 +648,18 @@ class AstCreator(filename: String, global: Global)
       .asScala
       .flatMap(wh => {
         val jumpTarget = NewJumpTarget()
-          .name(wh.WHEN().getText)
+          .name("case")
           .code(wh.getText())
           .lineNumber(wh.WHEN().getSymbol.getLine)
           .columnNumber(wh.WHEN().getSymbol.getCharPositionInLine)
 
         val whenACondAsts = astForWhenArgumentContext(wh.whenArgument())
         val thenAsts      = astForThenClauseContext(wh.thenClause())
-        val asts          = whenACondAsts ++ thenAsts
-        asts.toList.prepended(Ast(jumpTarget))
+        val breakNode = NewControlStructure()
+          .controlStructureType(ControlStructureTypes.BREAK)
+          .lineNumber(wh.WHEN().getSymbol.getLine)
+          .columnNumber(wh.WHEN().getSymbol.getCharPositionInLine)
+        whenACondAsts ++ thenAsts ++ Seq(Ast(jumpTarget), Ast(breakNode))
       })
       .toList
 
@@ -674,16 +677,17 @@ class AstCreator(filename: String, global: Global)
       }
     }
 
-    val blockNode = NewBlock().typeFullName(Defines.Any)
     val caseAsts =
       if (ctx.caseExpression().elseClause() != null) {
         val elseAst = astForElseClauseContext(ctx.caseExpression().elseClause())
-        whenThenAstsList ++ elseAst
+        whenThenAstsList //++ elseAst
       } else {
         whenThenAstsList
       }
 
-    Seq(controlStructureAst(caseNode, condAst, Seq(blockAst(blockNode, caseAsts))))
+    val blockNode = NewBlock().typeFullName(Defines.Any)
+    val ast = blockAst(blockNode, caseAsts)
+    Seq(controlStructureAst(caseNode, condAst,Seq(ast) ))
   }
 
   def astForChainedInvocationPrimaryContext(ctx: ChainedInvocationPrimaryContext): Seq[Ast] = {
@@ -968,12 +972,12 @@ class AstCreator(filename: String, global: Global)
   def astForElseClauseContext(ctx: ElseClauseContext): Seq[Ast] = {
     if (ctx == null) return Seq(Ast())
     val jumpTarget = NewJumpTarget()
-      .name(ctx.ELSE().getText)
+      .name("else")
       .code(ctx.getText())
       .lineNumber(ctx.ELSE().getSymbol.getLine)
       .columnNumber(ctx.ELSE().getSymbol.getCharPositionInLine)
     val stmtsAsts = astForStatementsContext(ctx.compoundStatement().statements()).toList
-    stmtsAsts.prepended(Ast(jumpTarget))
+    Seq(Ast(jumpTarget)) ++ stmtsAsts
   }
 
   def astForIfExpressionContext(ctx: IfExpressionContext): Seq[Ast] = {

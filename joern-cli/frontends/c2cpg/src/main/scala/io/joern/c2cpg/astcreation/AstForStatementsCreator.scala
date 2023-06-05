@@ -147,7 +147,8 @@ trait AstForStatementsCreator { this: AstCreator =>
       case _: IASTNullStatement                   => Seq.empty
       case _                                      => Seq(astForNode(statement))
     }
-    r.map(x => asChildOfMacroCall(statement, x))
+    val ret = r.map(x => asChildOfMacroCall(statement, x))
+    ret
   }
 
   private def astForConditionExpression(expr: IASTExpression, explicitArgumentIndex: Option[Int] = None): Ast = {
