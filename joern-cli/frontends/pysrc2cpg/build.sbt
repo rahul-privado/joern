@@ -1,7 +1,7 @@
 name := "pysrc2cpg"
 
 scalaVersion       := "2.13.8"
-crossScalaVersions := Seq("2.13.8", "3.2.2")
+crossScalaVersions := Seq("2.13.8", "3.3.0")
 
 dependsOn(Projects.dataflowengineoss, Projects.x2cpg % "compile->compile;test->test")
 
@@ -19,7 +19,7 @@ val javaCCTask = taskKey[Seq[File]]("Generate compiler code with JavaCC")
 javaCCTask / fileInputs += baseDirectory.value.toGlob / "pythonGrammar.jj"
 javaCCTask := {
   import org.javacc.parser.{Main => JavaCCMain}
-  val outputDir = (Compile / sourceManaged).value / "io" / "joern" / "pythonparser"
+  val outputDir       = (Compile / sourceManaged).value / "io" / "joern" / "pythonparser"
   val inputFileOption = javaCCTask.inputFiles.head
   if (
     !outputDir.exists() ||
