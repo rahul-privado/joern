@@ -680,7 +680,7 @@ class AstCreator(filename: String, global: Global)
     val caseAsts =
       if (ctx.caseExpression().elseClause() != null) {
         val elseAst = astForElseClauseContext(ctx.caseExpression().elseClause())
-        whenThenAstsList //++ elseAst
+        whenThenAstsList ++ elseAst
       } else {
         whenThenAstsList
       }
