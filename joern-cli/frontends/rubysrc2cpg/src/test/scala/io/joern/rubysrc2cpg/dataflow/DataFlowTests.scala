@@ -52,4 +52,25 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
     }
   }
 
+  "Return via call" should {
+    val cpg = code("""
+      |def foo(param)
+      |return param
+      |end
+      |
+      |def main
+      |n = 1
+      |ret = foo( n )
+      |puts ret
+      |end
+      |""".stripMargin)
+
+    "be found" in {
+      implicit val resolver: ICallResolver = NoResolve
+      val src                              = cpg.identifier.name("n").where(_.inCall.name("print")).l
+      val sink                             = cpg.method.name("puts").callIn.argument(1).l
+      sink.reachableByFlows(src).size shouldBe 1
+    }
+  }
+
 }
