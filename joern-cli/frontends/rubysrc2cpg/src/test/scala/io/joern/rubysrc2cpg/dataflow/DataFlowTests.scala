@@ -67,8 +67,8 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
 
     "be found" in {
       implicit val resolver: ICallResolver = NoResolve
-      val src                              = cpg.identifier.name("n").where(_.inCall.name("print")).l
-      val sink                             = cpg.method.name("puts").callIn.argument(1).l
+      val src                              = cpg.identifier.name("n")
+      val sink                             = cpg.method.name("puts")
       sink.reachableByFlows(src).size shouldBe 1
     }
   }
