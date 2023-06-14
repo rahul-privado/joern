@@ -281,4 +281,30 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
       sink.reachableByFlows(source).l.size shouldBe 2
     }
   }
+
+  "Data flow through case statement" should {
+    val cpg = code(
+      """
+        |x = 2
+        |b = x
+        |
+        |case b
+        |when 1
+        |    puts b
+        |when 2
+        |    puts b
+        |when 3
+        |    puts b
+        |else
+        |    puts b
+        |end
+        |
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
 }
