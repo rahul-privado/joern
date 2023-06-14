@@ -166,4 +166,26 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
       sink.reachableByFlows(src).l.size shouldBe 2
     }
   }
+
+  "Data flow through class method" should {
+    val cpg = code("""
+        |class MyClass
+        |
+        |  def print(text)
+        |    puts text
+        |  end
+        |end
+        |
+        |
+        |x = "some text"
+        |inst = MyClass.new
+        |inst.print(x)
+        |""".stripMargin)
+
+    "be found" in {
+      val src  = cpg.identifier.name("a").l
+      val sink = cpg.call.name("puts").l
+      sink.reachableByFlows(src).l.size shouldBe 2
+    }
+  }
 }
