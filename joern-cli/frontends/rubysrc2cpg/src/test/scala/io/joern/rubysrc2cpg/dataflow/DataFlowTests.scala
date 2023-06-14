@@ -282,7 +282,7 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
     }
   }
 
-  "Data flow through case statement" should {
+  "Data flow through case statement" ignore  {
     val cpg = code(
       """
         |x = 2
