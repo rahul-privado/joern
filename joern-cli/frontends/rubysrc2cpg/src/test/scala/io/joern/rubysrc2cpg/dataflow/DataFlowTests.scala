@@ -608,4 +608,23 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
       sink.reachableByFlows(source).l.size shouldBe 3
     }
   }
+
+  "Data flow through hash constructor" should {
+    val cpg = code(
+      """
+        |def foo(arg)
+        |hash = {1 => arg, 2 => arg}
+        |puts hash
+        |end
+        |
+        |x = 3
+        |foo(x)
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
 }
