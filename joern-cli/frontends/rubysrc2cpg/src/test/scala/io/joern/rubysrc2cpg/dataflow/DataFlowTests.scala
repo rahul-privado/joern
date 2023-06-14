@@ -364,4 +364,118 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
       sink.reachableByFlows(source).l.size shouldBe 2
     }
   }
+
+  "Data flow through for and next AFTER statement" should {
+    val cpg = code("""
+        |x = 0
+        |arr = [1,2,3,4,5]
+        |num = 0
+        |for i in arr do
+        |   num = x
+        |   next if i % 2 == 0
+        |end
+        |puts num
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
+
+  "Data flow through for and next BEFORE statement" ignore {
+    val cpg = code("""
+        |x = 0
+        |arr = [1,2,3,4,5]
+        |num = 0
+        |for i in arr do
+        |   next if i % 2 == 0
+        |   num = x
+        |end
+        |puts num
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
+
+  "Data flow through for and redo AFTER statement" should {
+    val cpg = code("""
+        |x = 0
+        |arr = [1,2,3,4,5]
+        |num = 0
+        |for i in arr do
+        |   num = x
+        |   redo if i % 2 == 0
+        |end
+        |puts num
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
+
+  "Data flow through for and redo BEFORE statement" ignore {
+    val cpg = code("""
+        |x = 0
+        |arr = [1,2,3,4,5]
+        |num = 0
+        |for i in arr do
+        |   redo if i % 2 == 0
+        |   num = x
+        |end
+        |puts num
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
+
+  "Data flow through for and retry AFTER statement" should {
+    val cpg = code("""
+        |x = 0
+        |arr = [1,2,3,4,5]
+        |num = 0
+        |for i in arr do
+        |   num = x
+        |   retry if i % 2 == 0
+        |end
+        |puts num
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
+
+  "Data flow through for and retry BEFORE statement" ignore {
+    val cpg = code("""
+        |x = 0
+        |arr = [1,2,3,4,5]
+        |num = 0
+        |for i in arr do
+        |   retry if i % 2 == 0
+        |   num = x
+        |end
+        |puts num
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
 }
