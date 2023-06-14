@@ -282,9 +282,8 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
     }
   }
 
-  "Data flow through case statement" ignore  {
-    val cpg = code(
-      """
+  "Data flow through case statement" ignore {
+    val cpg = code("""
         |x = 2
         |b = x
         |
@@ -303,14 +302,13 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
 
     "find flows to the sink" in {
       val source = cpg.identifier.name("x").l
-      val sink = cpg.call.name("puts").l
+      val sink   = cpg.call.name("puts").l
       sink.reachableByFlows(source).l.size shouldBe 2
     }
   }
 
   "Data flow through do-while loop" should {
-    val cpg = code(
-      """
+    val cpg = code("""
         |x = 0
         |num = -1
         |loop do
@@ -325,7 +323,44 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
 
     "find flows to the sink" in {
       val source = cpg.identifier.name("x").l
-      val sink = cpg.call.name("puts").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
+
+  "Data flow through for loop" ignore {
+    val cpg = code("""
+          |x = 0
+          |arr = [1,2,3,4,5]
+          |num = 0
+          |for i in arr do
+          |   y = x + i
+          |   num = y*i
+          |end
+          |puts num
+          |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
+
+  "Data flow through for loop simple" should {
+    val cpg = code("""
+        |x = 0
+        |arr = [1,2,3,4,5]
+        |num = 0
+        |for i in arr do
+        |   num = x
+        |end
+        |puts num
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
       sink.reachableByFlows(source).l.size shouldBe 2
     }
   }
