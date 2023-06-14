@@ -6,7 +6,7 @@ import io.shiftleft.semanticcpg.language._
 
 class DataFlowTests extends DataFlowCodeToCpgSuite {
 
-  "CPG for code with flow through a function and if-elseif-else" should {
+  "Data flow through if-elseif-else" should {
     val cpg = code("""
         |x = 2
         |a = x
@@ -222,6 +222,63 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
       val src  = cpg.identifier.name("a").l
       val sink = cpg.call.name("puts").l
       sink.reachableByFlows(src).l.size shouldBe 2
+    }
+  }
+
+  "Data flow through a until loop" should {
+    val cpg = code("""
+        |i = 0
+        |num = 5
+        |
+        |until i < num
+        |   num = i + 3
+        |end
+        |puts num
+        |""".stripMargin)
+
+    "be found" in {
+      val src  = cpg.identifier.name("i").l
+      val sink = cpg.call.name("puts").l
+      sink.reachableByFlows(src).l.size shouldBe 3
+    }
+  }
+
+  "Data flow in through until modifier" should {
+    val cpg = code("""
+        |i = 0
+        |num = 5
+        |begin
+        |   num = i + 3
+        |end until i < num
+        |puts num
+        |""".stripMargin)
+
+    "be found" in {
+      val src  = cpg.identifier.name("i").l
+      val sink = cpg.call.name("puts").l
+      sink.reachableByFlows(src).l.size shouldBe 3
+    }
+  }
+
+  "Data flow through unless-else" should {
+    val cpg = code("""
+        |x = 2
+        |a = x
+        |b = 0
+        |
+        |unless a > 2
+        |    b = a + 3
+        |else
+        |    b = a + 9
+        |end
+        |
+        |puts(b)
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
     }
   }
 }
