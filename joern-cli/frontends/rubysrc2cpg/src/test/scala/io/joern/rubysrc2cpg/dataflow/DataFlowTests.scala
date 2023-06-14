@@ -188,6 +188,26 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
     }
   }
 
+  "Data flow through module method" ignore {
+    val cpg = code("""
+        |module MyModule
+        |  def MyModule.print(text)
+        |    puts text
+        |  end
+        |end
+        |
+        |x = "some text"
+        |
+        |MyModule::print(x)
+        |""".stripMargin)
+
+    "be found" in {
+      val src  = cpg.identifier.name("a").l
+      val sink = cpg.call.name("puts").l
+      sink.reachableByFlows(src).l.size shouldBe 2
+    }
+  }
+
   "Data flow through yield with argument" ignore {
     val cpg = code("""
         |def yield_with_arguments
