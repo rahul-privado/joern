@@ -553,4 +553,40 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
       sink.reachableByFlows(source).l.size shouldBe 2
     }
   }
+
+  "Data flow through array constructor expressionsAndSplattingIndexingArguments" should {
+    val cpg = code("""
+        |def foo(*splat_args)
+        |array = [1,2,*splat_args]
+        |puts array
+        |end
+        |
+        |x = 3
+        |foo(x)
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
+
+  "Data flow through array constructor associationsOnlyIndexingArguments" should {
+    val cpg = code("""
+        |def foo(arg)
+        |array = [1 => arg, 2 => arg]
+        |puts array
+        |end
+        |
+        |x = 3
+        |foo(x)
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
 }
