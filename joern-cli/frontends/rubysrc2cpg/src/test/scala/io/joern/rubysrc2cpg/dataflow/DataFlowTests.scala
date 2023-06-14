@@ -479,11 +479,25 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
     }
   }
 
-  "Data flow through for grouping expression" should {
+  "Data flow through grouping expression" should {
     val cpg = code("""
         |x = 0
         |y = (x==0)
         |puts y
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
+
+  "Data flow through variable assigned a scoped constant" should {
+    val cpg = code("""
+        |MyConst = 10
+        |x = ::MyConst
+        |puts x
         |""".stripMargin)
 
     "find flows to the sink" in {
