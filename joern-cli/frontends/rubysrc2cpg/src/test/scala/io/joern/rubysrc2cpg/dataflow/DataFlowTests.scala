@@ -589,4 +589,23 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
       sink.reachableByFlows(source).l.size shouldBe 2
     }
   }
+
+  "Data flow through array constructor commandOnlyIndexingArguments" should {
+    val cpg = code("""
+        |def increment(arg)
+        |return arg + 1
+        |end
+        |
+        |x = 1
+        |array = [ increment(x), increment(x+1)]
+        |puts array
+        |
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 3
+    }
+  }
 }
