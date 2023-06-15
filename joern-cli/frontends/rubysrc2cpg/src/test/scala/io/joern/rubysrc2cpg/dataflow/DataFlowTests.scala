@@ -654,4 +654,50 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
       sink.reachableByFlows(source).l.size shouldBe 2
     }
   }
+
+  "Data flow through methodOnlyIdentifier usage" should {
+    val cpg = code("""
+        |x = 1
+        |y = SomeConstant! + x
+        |puts y
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
+
+  "Data flow through chainedInvocationPrimary usage" ignore {
+    val cpg = code("""
+        |x = 1
+        |
+        |[x, x+1].each do |number|
+        |  puts "#{number} was passed to the block"
+        |end
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
+
+  "Data flow through chainedInvocationWithoutArgumentsPrimary usage" should {
+    val cpg = code("""
+        |x = 1
+        |
+        |[1,2,3].each do
+        |  puts "Right here #{x}"
+        |end
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
 }
