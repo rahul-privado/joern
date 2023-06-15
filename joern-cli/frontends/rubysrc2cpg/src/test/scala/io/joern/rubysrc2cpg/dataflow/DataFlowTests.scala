@@ -610,8 +610,7 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
   }
 
   "Data flow through hash constructor" should {
-    val cpg = code(
-      """
+    val cpg = code("""
         |def foo(arg)
         |hash = {1 => arg, 2 => arg}
         |puts hash
@@ -623,7 +622,21 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
 
     "find flows to the sink" in {
       val source = cpg.identifier.name("x").l
-      val sink = cpg.call.name("puts").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).l.size shouldBe 2
+    }
+  }
+
+  "Data flow through string interpolation" should {
+    val cpg = code("""
+        |x = 1
+        |str = "The source is #{x}"
+        |puts str
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
       sink.reachableByFlows(source).l.size shouldBe 2
     }
   }
