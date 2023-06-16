@@ -583,8 +583,11 @@ class AstCreator(filename: String, global: Global)
     }
 
     if (ctx.block() != null) {
+      val blockMethodName = methodNameAst.head.nodes.head
+        .asInstanceOf[NewCall]
+        .name
       val blockMethodNode =
-        astForBlockContext(ctx.block(), true).head.nodes.head
+        astForBlockContext(ctx.block(), Some(blockMethodName)).head.nodes.head
           .asInstanceOf[NewMethod]
       val callNode = NewCall()
         .name(blockMethodNode.name)
@@ -1592,15 +1595,19 @@ class AstCreator(filename: String, global: Global)
     }
   }
 
-  def astForDoBlockContext(ctx: DoBlockContext, blockAsMethod: Boolean = false): Seq[Ast] = {
-    astForBlock(ctx.compoundStatement().statements(), ctx.blockParameter(), blockAsMethod)
+  def astForDoBlockContext(ctx: DoBlockContext, blockMethodName: Option[String] = None): Seq[Ast] = {
+    astForBlock(ctx.compoundStatement().statements(), ctx.blockParameter(), blockMethodName)
   }
 
-  def astForBraceBlockContext(ctx: BraceBlockContext, blockAsMethod: Boolean = false): Seq[Ast] = {
-    astForBlock(ctx.compoundStatement().statements(), ctx.blockParameter(), blockAsMethod)
+  def astForBraceBlockContext(ctx: BraceBlockContext, blockMethodName: Option[String] = None): Seq[Ast] = {
+    astForBlock(ctx.compoundStatement().statements(), ctx.blockParameter(), blockMethodName)
   }
 
-  def astForBlockMethod(ctxStmt: StatementsContext, ctxParam: BlockParameterContext): Seq[Ast] = {
+  def astForBlockMethod(
+    ctxStmt: StatementsContext,
+    ctxParam: BlockParameterContext,
+    blockMethodName: String
+  ): Seq[Ast] = {
     /*
      * Model a block as a method
      */
@@ -1615,13 +1622,12 @@ class AstCreator(filename: String, global: Global)
     val astBody = astForStatementsContext(ctxStmt)
     scope.popScope()
 
-    val blockName = "fakeName" // TODO set a unique method id
     val methodNode = NewMethod()
       .code(ctxStmt.getText)
-      .name(blockName)
-      .fullName(s"$filename:${blockName}")
+      .name(blockMethodName)
+      .fullName(s"$filename:${blockMethodName}")
       .filename(filename)
-    // TODO set line and column number by passing from above
+    // no line and column number is being set here since this is a fake method
 
     val methodRetNode = NewMethodReturn()
       .typeFullName(Defines.Any)
@@ -1668,28 +1674,28 @@ class AstCreator(filename: String, global: Global)
   def astForBlock(
     ctxStmt: StatementsContext,
     ctxParam: BlockParameterContext,
-    blockAsMethod: Boolean = false
+    blockMethodName: Option[String] = None
   ): Seq[Ast] = {
-    if (blockAsMethod) {
-      astForBlockMethod(ctxStmt, ctxParam)
-    } else {
-      val stmtAsts  = astForStatementsContext(ctxStmt)
-      val blockNode = NewBlock().typeFullName(Defines.Any)
-      val retAst = if (ctxParam != null) {
-        val bpAsts = astForBlockParameterContext(ctxParam)
-        blockAst(blockNode, (bpAsts ++ stmtAsts).toList)
-      } else {
-        blockAst(blockNode, stmtAsts.toList)
-      }
-      Seq(retAst)
+    blockMethodName match {
+      case Some(blockMethodName) => astForBlockMethod(ctxStmt, ctxParam, blockMethodName)
+      case None =>
+        val stmtAsts  = astForStatementsContext(ctxStmt)
+        val blockNode = NewBlock().typeFullName(Defines.Any)
+        val retAst = if (ctxParam != null) {
+          val bpAsts = astForBlockParameterContext(ctxParam)
+          blockAst(blockNode, (bpAsts ++ stmtAsts).toList)
+        } else {
+          blockAst(blockNode, stmtAsts.toList)
+        }
+        Seq(retAst)
     }
   }
 
-  def astForBlockContext(ctx: BlockContext, blockAsMethod: Boolean = false): Seq[Ast] = {
+  def astForBlockContext(ctx: BlockContext, blockMethodName: Option[String] = None): Seq[Ast] = {
     if (ctx.doBlock() != null) {
-      astForDoBlockContext(ctx.doBlock(), blockAsMethod)
+      astForDoBlockContext(ctx.doBlock(), blockMethodName)
     } else if (ctx.braceBlock() != null) {
-      astForBraceBlockContext(ctx.braceBlock(), blockAsMethod)
+      astForBraceBlockContext(ctx.braceBlock(), blockMethodName)
     } else {
       Seq(Ast())
     }
