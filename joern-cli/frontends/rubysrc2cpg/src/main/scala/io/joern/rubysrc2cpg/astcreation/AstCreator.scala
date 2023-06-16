@@ -585,7 +585,7 @@ class AstCreator(filename: String, global: Global)
     if (ctx.block() != null) {
       val blockMethodName = methodNameAst.head.nodes.head
         .asInstanceOf[NewCall]
-        .name
+        .name + terminalNode.getSymbol.getLine
       val blockMethodNode =
         astForBlockContext(ctx.block(), Some(blockMethodName)).head.nodes.head
           .asInstanceOf[NewMethod]
