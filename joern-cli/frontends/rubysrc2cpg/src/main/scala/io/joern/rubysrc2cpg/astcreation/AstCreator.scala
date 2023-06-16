@@ -439,23 +439,14 @@ class AstCreator(filename: String, global: Global)
     case ctx: RubyParser.CommandOnlyIndexingArgumentsContext =>
       astForCommandContext(ctx.command())
     case ctx: RubyParser.ExpressionsOnlyIndexingArgumentsContext =>
-      val expAsts =
-        ctx
-          .expressions()
-          .expression()
-          .asScala
-          .flatMap(exp => {
-            astForExpressionContext(exp)
-          })
-          .toSeq
-      val callNode = NewCall()
-        .name(Operators.arrayInitializer)
-        .methodFullName(Operators.arrayInitializer)
-        .signature(Operators.arrayInitializer)
-        .typeFullName(DynamicCallUnknownFullName)
-        .dispatchType(DispatchTypes.STATIC_DISPATCH)
-        .code(ctx.getText)
-      Seq(callAst(callNode, expAsts))
+      ctx
+        .expressions()
+        .expression()
+        .asScala
+        .flatMap(exp => {
+          astForExpressionContext(exp)
+        })
+        .toSeq
     case ctx: RubyParser.ExpressionsAndSplattingIndexingArgumentsContext =>
       val expAsts = ctx
         .expressions()
@@ -574,61 +565,35 @@ class AstCreator(filename: String, global: Global)
   }
 
   def astForChainedInvocationPrimaryContext(ctx: ChainedInvocationPrimaryContext): Seq[Ast] = {
-    val methodNameAst = astForMethodNameContext(ctx.methodName())
-
-    val baseAst = astForPrimaryContext(ctx.primary())
-
     val terminalNode = if (ctx.COLON2() != null) {
       ctx.COLON2()
     } else {
       ctx.DOT()
     }
-
-    val identifierNodes = methodNameAst.head.nodes
-      .filter(node => node.isInstanceOf[NewIdentifier])
-    if (identifierNodes.size > 0) {
-      /*
-       This is a object.member access. baseAst contains the object whose member is being accessed
-       methodNameAst is the member
-       TODO this does not cover the case in which the member could be correctly recognised as a identifier
-       This will be covered once class and method information is made available to this pass with a
-       preprocessing pass for imports before this pass
-       */
-
-      val operatorName = getOperatorName(terminalNode.getSymbol)
-      val callNode = NewCall()
-        .name(operatorName)
-        .code(ctx.getText)
-        .methodFullName(operatorName)
-        .signature("")
-        .dispatchType(DispatchTypes.STATIC_DISPATCH)
-        .typeFullName(Defines.Any)
-        .lineNumber(terminalNode.getSymbol().getLine())
-        .columnNumber(terminalNode.getSymbol().getCharPositionInLine())
-      Seq(callAst(callNode, baseAst ++ methodNameAst))
+    val argsAst = if (ctx.argumentsWithParentheses() != null) {
+      astForArgumentsWithParenthesesContext(ctx.argumentsWithParentheses())
     } else {
-      // this is a object.method(args) access
-      // baseAst contains the object whose member is being accessed
-      // call node is for the method. arguments are the passed arguments + the object itself
-      val argsAst = if (ctx.argumentsWithParentheses() != null) {
-        astForArgumentsWithParenthesesContext(ctx.argumentsWithParentheses())
-      } else {
-        Seq()
-      }
-
-      val blocksAst = if (ctx.block() != null) {
-        astForBlockContext(ctx.block())
-      } else {
-        Seq()
-      }
-
-      val callNode = methodNameAst.head.nodes.filter(node => node.isInstanceOf[NewCall]).head.asInstanceOf[NewCall]
-      callNode
-        .code(ctx.getText)
-        .lineNumber(terminalNode.getSymbol().getLine())
-        .columnNumber(terminalNode.getSymbol().getCharPositionInLine())
-      Seq(callAst(callNode, baseAst ++ argsAst ++ blocksAst))
+      Seq()
     }
+    val methodNameAst = astForMethodNameContext(ctx.methodName())
+    val baseAst       = astForPrimaryContext(ctx.primary())
+
+    val blocksAsts = if (ctx.block() != null) {
+      astForBlockContext(ctx.block())
+    } else {
+      Seq()
+    }
+
+    val callNode = methodNameAst.head.nodes
+      .filter(node => node.isInstanceOf[NewCall])
+      .head
+      .asInstanceOf[NewCall]
+
+    callNode
+      .code(ctx.getText)
+      .lineNumber(terminalNode.getSymbol().getLine())
+      .columnNumber(terminalNode.getSymbol().getCharPositionInLine())
+    Seq(callAst(callNode, baseAst ++ blocksAsts ++ argsAst))
   }
 
   def astForChainedInvocationWithoutArgumentsPrimaryContext(
@@ -1608,7 +1573,7 @@ class AstCreator(filename: String, global: Global)
   }
 
   def astForBlockParameterContext(ctx: BlockParameterContext): Seq[Ast] = {
-    if (ctx.blockParameters() != null) {
+    if (ctx != null && ctx.blockParameters() != null) {
       astForBlockParametersContext(ctx.blockParameters())
     } else {
       Seq(Ast())
@@ -1626,13 +1591,7 @@ class AstCreator(filename: String, global: Global)
   def astForBlock(ctxStmt: StatementsContext, ctxParam: BlockParameterContext): Seq[Ast] = {
     val stmtAsts  = astForStatementsContext(ctxStmt)
     val blockNode = NewBlock().typeFullName(Defines.Any)
-    val retAst = if (ctxParam != null) {
-      val bpAsts = astForBlockParameterContext(ctxParam)
-      blockAst(blockNode, (bpAsts ++ stmtAsts).toList)
-    } else {
-      blockAst(blockNode, stmtAsts.toList)
-    }
-    Seq(retAst)
+    astForBlockParameterContext(ctxParam) ++ Seq(blockAst(blockNode, stmtAsts.toList))
   }
 
   def astForBlockContext(ctx: BlockContext): Seq[Ast] = {
