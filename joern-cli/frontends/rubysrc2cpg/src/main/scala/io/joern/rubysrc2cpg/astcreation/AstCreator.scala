@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory
 import overflowdb.BatchedUpdate
 
 import java.util
+import scala.collection.immutable.Seq
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters._
@@ -39,6 +40,7 @@ class AstCreator(filename: String, global: Global)
 
   protected val methodAliases = mutable.HashMap[String, String]()
   protected val methodNames   = mutable.HashSet[String]()
+  protected val blockMethods  = ListBuffer[Ast]()
 
   protected def createIdentifierWithScope(
     ctx: ParserRuleContext,
@@ -66,9 +68,10 @@ class AstCreator(filename: String, global: Global)
     scope.pushNewScope(())
     val statementAsts = if (statementCtx != null) {
       astForStatementsContext(statementCtx)
-    } else {
-      List[Ast](Ast())
-    }
+    } else
+      {
+        List[Ast](Ast())
+      } ++ blockMethods
     scope.popScope()
 
     val name = ":program"
@@ -575,8 +578,7 @@ class AstCreator(filename: String, global: Global)
 
   def astForChainedInvocationPrimaryContext(ctx: ChainedInvocationPrimaryContext): Seq[Ast] = {
     val methodNameAst = astForMethodNameContext(ctx.methodName())
-
-    val baseAst = astForPrimaryContext(ctx.primary())
+    val baseAst       = astForPrimaryContext(ctx.primary())
 
     val terminalNode = if (ctx.COLON2() != null) {
       ctx.COLON2()
@@ -584,50 +586,35 @@ class AstCreator(filename: String, global: Global)
       ctx.DOT()
     }
 
-    val identifierNodes = methodNameAst.head.nodes
-      .filter(node => node.isInstanceOf[NewIdentifier])
-    if (identifierNodes.size > 0) {
-      /*
-       This is a object.member access. baseAst contains the object whose member is being accessed
-       methodNameAst is the member
-       TODO this does not cover the case in which the member could be correctly recognised as a identifier
-       This will be covered once class and method information is made available to this pass with a
-       preprocessing pass for imports before this pass
-       */
-
-      val operatorName = getOperatorName(terminalNode.getSymbol)
-      val callNode = NewCall()
-        .name(operatorName)
-        .code(ctx.getText)
-        .methodFullName(operatorName)
-        .signature("")
-        .dispatchType(DispatchTypes.STATIC_DISPATCH)
-        .typeFullName(Defines.Any)
-        .lineNumber(terminalNode.getSymbol().getLine())
-        .columnNumber(terminalNode.getSymbol().getCharPositionInLine())
-      Seq(callAst(callNode, baseAst ++ methodNameAst))
+    val argsAst = if (ctx.argumentsWithParentheses() != null) {
+      astForArgumentsWithParenthesesContext(ctx.argumentsWithParentheses())
     } else {
-      // this is a object.method(args) access
-      // baseAst contains the object whose member is being accessed
-      // call node is for the method. arguments are the passed arguments + the object itself
-      val argsAst = if (ctx.argumentsWithParentheses() != null) {
-        astForArgumentsWithParenthesesContext(ctx.argumentsWithParentheses())
-      } else {
-        Seq()
-      }
+      Seq()
+    }
 
-      val blocksAst = if (ctx.block() != null) {
-        astForBlockContext(ctx.block())
-      } else {
-        Seq()
-      }
-
+    if (ctx.block() != null) {
+      val blockMethodNode =
+        astForBlockContext(ctx.block(), true)
+          .head
+          .nodes
+          .head
+          .asInstanceOf[NewMethod]
+      val callNode = NewCall()
+        .name(blockMethodNode.name)
+        .methodFullName(blockMethodNode.fullName)
+        .typeFullName(DynamicCallUnknownFullName)
+        .dispatchType(DispatchTypes.STATIC_DISPATCH)
+        .code(blockMethodNode.code)
+        .lineNumber(blockMethodNode.lineNumber)
+        .columnNumber(blockMethodNode.columnNumber)
+      Seq(callAst(callNode, baseAst))
+    } else {
       val callNode = methodNameAst.head.nodes.filter(node => node.isInstanceOf[NewCall]).head.asInstanceOf[NewCall]
       callNode
         .code(ctx.getText)
         .lineNumber(terminalNode.getSymbol().getLine())
         .columnNumber(terminalNode.getSymbol().getCharPositionInLine())
-      Seq(callAst(callNode, baseAst ++ argsAst ++ blocksAst))
+      Seq(callAst(callNode, argsAst, baseAst.headOption))
     }
   }
 
@@ -1615,31 +1602,90 @@ class AstCreator(filename: String, global: Global)
     }
   }
 
-  def astForDoBlockContext(ctx: DoBlockContext): Seq[Ast] = {
-    astForBlock(ctx.compoundStatement().statements(), ctx.blockParameter())
+  def astForDoBlockContext(ctx: DoBlockContext, blockAsMethod: Boolean = false): Seq[Ast] = {
+    astForBlock(ctx.compoundStatement().statements(), ctx.blockParameter(), blockAsMethod)
   }
 
-  def astForBraceBlockContext(ctx: BraceBlockContext): Seq[Ast] = {
-    astForBlock(ctx.compoundStatement().statements(), ctx.blockParameter())
+  def astForBraceBlockContext(ctx: BraceBlockContext, blockAsMethod: Boolean = false): Seq[Ast] = {
+    astForBlock(ctx.compoundStatement().statements(), ctx.blockParameter(), blockAsMethod)
   }
 
-  def astForBlock(ctxStmt: StatementsContext, ctxParam: BlockParameterContext): Seq[Ast] = {
-    val stmtAsts  = astForStatementsContext(ctxStmt)
-    val blockNode = NewBlock().typeFullName(Defines.Any)
-    val retAst = if (ctxParam != null) {
-      val bpAsts = astForBlockParameterContext(ctxParam)
-      blockAst(blockNode, (bpAsts ++ stmtAsts).toList)
+  def astForBlockMethod(ctxStmt: StatementsContext, ctxParam: BlockParameterContext): Seq[Ast] = {
+    /*
+     * Model a block as a method
+     */
+
+    val astMethodParam = if (ctxParam != null) {
+      astForBlockParameterContext(ctxParam)
     } else {
-      blockAst(blockNode, stmtAsts.toList)
+      Seq()
     }
-    Seq(retAst)
+
+    scope.pushNewScope(())
+    val astBody = astForStatementsContext(ctxStmt)
+    scope.popScope()
+
+    val blockName = "fakeName" // TODO set a unique method id
+    val methodNode = NewMethod()
+      .code(ctxStmt.getText)
+      .name(blockName)
+      .fullName(s"$filename:${blockName}")
+      .filename(filename)
+    // TODO set line and column number by passing from above
+
+    val methodRetNode = NewMethodReturn()
+      .lineNumber(None)
+      .columnNumber(None)
+      .typeFullName(Defines.Any)
+
+    val publicModifier = NewModifier().modifierType(ModifierTypes.PUBLIC)
+    val paramSeq = astMethodParam.headOption match {
+      case Some(value) =>
+        value.nodes
+          .map(node => {
+            Ast(node)
+          })
+          .toSeq
+      case None => Seq()
+    }
+
+    val blockNode = NewBlock().typeFullName(Defines.Any)
+    val methAst = methodAst(
+      methodNode,
+      paramSeq,
+      blockAst(blockNode, astBody.toList),
+      methodRetNode,
+      Seq[NewModifier](publicModifier)
+    )
+    blockMethods.addOne(methAst)
+    Seq(methAst)
   }
 
-  def astForBlockContext(ctx: BlockContext): Seq[Ast] = {
+  def astForBlock(
+    ctxStmt: StatementsContext,
+    ctxParam: BlockParameterContext,
+    blockAsMethod: Boolean = false
+  ): Seq[Ast] = {
+    if (blockAsMethod) {
+      astForBlockMethod(ctxStmt, ctxParam)
+    } else {
+      val stmtAsts  = astForStatementsContext(ctxStmt)
+      val blockNode = NewBlock().typeFullName(Defines.Any)
+      val retAst = if (ctxParam != null) {
+        val bpAsts = astForBlockParameterContext(ctxParam)
+        blockAst(blockNode, (bpAsts ++ stmtAsts).toList)
+      } else {
+        blockAst(blockNode, stmtAsts.toList)
+      }
+      Seq(retAst)
+    }
+  }
+
+  def astForBlockContext(ctx: BlockContext, blockAsMethod: Boolean = false): Seq[Ast] = {
     if (ctx.doBlock() != null) {
-      astForDoBlockContext(ctx.doBlock())
+      astForDoBlockContext(ctx.doBlock(), blockAsMethod)
     } else if (ctx.braceBlock() != null) {
-      astForBraceBlockContext(ctx.braceBlock())
+      astForBraceBlockContext(ctx.braceBlock(), blockAsMethod)
     } else {
       Seq(Ast())
     }
