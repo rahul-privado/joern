@@ -67,11 +67,10 @@ class AstCreator(filename: String, global: Global)
     val statementCtx = programCtx.compoundStatement().statements()
     scope.pushNewScope(())
     val statementAsts = if (statementCtx != null) {
-      astForStatementsContext(statementCtx)
-    } else
-      {
+      astForStatementsContext(statementCtx) ++ blockMethods
+    } else {
         List[Ast](Ast())
-      } ++ blockMethods
+    }
     scope.popScope()
 
     val name = ":program"
@@ -442,23 +441,14 @@ class AstCreator(filename: String, global: Global)
     case ctx: RubyParser.CommandOnlyIndexingArgumentsContext =>
       astForCommandContext(ctx.command())
     case ctx: RubyParser.ExpressionsOnlyIndexingArgumentsContext =>
-      val expAsts =
-        ctx
-          .expressions()
-          .expression()
-          .asScala
-          .flatMap(exp => {
-            astForExpressionContext(exp)
-          })
-          .toSeq
-      val callNode = NewCall()
-        .name(Operators.arrayInitializer)
-        .methodFullName(Operators.arrayInitializer)
-        .signature(Operators.arrayInitializer)
-        .typeFullName(DynamicCallUnknownFullName)
-        .dispatchType(DispatchTypes.STATIC_DISPATCH)
-        .code(ctx.getText)
-      Seq(callAst(callNode, expAsts))
+      ctx
+        .expressions()
+        .expression()
+        .asScala
+        .flatMap(exp => {
+          astForExpressionContext(exp)
+        })
+        .toSeq
     case ctx: RubyParser.ExpressionsAndSplattingIndexingArgumentsContext =>
       val expAsts = ctx
         .expressions()
@@ -594,10 +584,7 @@ class AstCreator(filename: String, global: Global)
 
     if (ctx.block() != null) {
       val blockMethodNode =
-        astForBlockContext(ctx.block(), true)
-          .head
-          .nodes
-          .head
+        astForBlockContext(ctx.block(), true).head.nodes.head
           .asInstanceOf[NewMethod]
       val callNode = NewCall()
         .name(blockMethodNode.name)
@@ -609,7 +596,10 @@ class AstCreator(filename: String, global: Global)
         .columnNumber(blockMethodNode.columnNumber)
       Seq(callAst(callNode, baseAst))
     } else {
-      val callNode = methodNameAst.head.nodes.filter(node => node.isInstanceOf[NewCall]).head.asInstanceOf[NewCall]
+      val callNode = methodNameAst.head.nodes
+        .filter(node => node.isInstanceOf[NewCall])
+        .head
+        .asInstanceOf[NewCall]
       callNode
         .code(ctx.getText)
         .lineNumber(terminalNode.getSymbol().getLine())
