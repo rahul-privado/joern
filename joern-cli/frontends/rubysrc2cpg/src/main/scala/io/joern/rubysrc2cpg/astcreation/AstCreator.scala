@@ -69,7 +69,7 @@ class AstCreator(filename: String, global: Global)
     val statementAsts = if (statementCtx != null) {
       astForStatementsContext(statementCtx) ++ blockMethods
     } else {
-        List[Ast](Ast())
+      List[Ast](Ast())
     }
     scope.popScope()
 
@@ -1624,8 +1624,6 @@ class AstCreator(filename: String, global: Global)
     // TODO set line and column number by passing from above
 
     val methodRetNode = NewMethodReturn()
-      .lineNumber(None)
-      .columnNumber(None)
       .typeFullName(Defines.Any)
 
     val publicModifier = NewModifier().modifierType(ModifierTypes.PUBLIC)
@@ -1633,7 +1631,23 @@ class AstCreator(filename: String, global: Global)
       case Some(value) =>
         value.nodes
           .map(node => {
-            Ast(node)
+            if (node.isInstanceOf[NewIdentifier]) {
+              val identifierNode = node.asInstanceOf[NewIdentifier]
+              val param = NewMethodParameterIn()
+                .name(identifierNode.name)
+                .code(identifierNode.code)
+                .lineNumber(identifierNode.lineNumber)
+                .columnNumber(identifierNode.columnNumber)
+              Ast(param)
+            } else {
+              val callNode = node.asInstanceOf[NewCall]
+              val param = NewMethodParameterIn()
+                .name(callNode.name)
+                .code(callNode.code)
+                .lineNumber(callNode.lineNumber)
+                .columnNumber(callNode.columnNumber)
+              Ast(param)
+            }
           })
           .toSeq
       case None => Seq()
