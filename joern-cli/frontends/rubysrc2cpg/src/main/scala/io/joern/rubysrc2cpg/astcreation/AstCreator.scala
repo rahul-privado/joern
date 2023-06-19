@@ -592,6 +592,7 @@ class AstCreator(filename: String, global: Global)
         .columnNumber(blockMethodNode.columnNumber)
       Seq(callAst(callNode, baseAst))
     } else {
+      // This is a object.method(params) call
       val callNode = methodNameAst.head.nodes
         .filter(node => node.isInstanceOf[NewCall])
         .head
@@ -600,7 +601,8 @@ class AstCreator(filename: String, global: Global)
         .code(ctx.getText)
         .lineNumber(terminalNode.getSymbol().getLine())
         .columnNumber(terminalNode.getSymbol().getCharPositionInLine())
-      Seq(callAst(callNode, argsAst, baseAst.headOption))
+      // baseAst is guaranteed to have at exactly one element
+      Seq(callAst(callNode, baseAst ++ argsAst))
     }
   }
 
@@ -1391,11 +1393,16 @@ class AstCreator(filename: String, global: Global)
      * TODO find out how they should be used. Need to do this iff it adds any value
      */
 
-    val paramSeq = astMethodParam.head.nodes
-      .map(node => {
-        Ast(node)
-      })
-      .toSeq
+    val thisParam = NewMethodParameterIn()
+      .name("this")
+      .code("this")
+
+    val paramSeq = Seq(Ast(thisParam)) ++
+      astMethodParam.head.nodes
+        .map(node => {
+          Ast(node)
+        })
+        .toSeq
 
     methodNames.add(methodNode.name)
     val blockNode = NewBlock().typeFullName(Defines.Any)

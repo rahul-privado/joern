@@ -208,7 +208,7 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
     }
   }
 
-  "Data flow through class member" ignore {
+  "Data flow through class member" should {
     val cpg = code("""
         |class MyClass
         | @instanceVariable
