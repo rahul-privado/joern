@@ -213,13 +213,13 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
         |class MyClass
         | @instanceVariable
         |
-        | def initialize(value)
+        |   def initialize(value)
         |        @instanceVariable = value
-        | end
+        |   end
         |
-        | def getValue()
+        |   def getValue()
         |        @instanceVariable
-        | end
+        |     end
         |end
         |
         |x = 12345

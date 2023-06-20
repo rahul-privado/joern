@@ -592,7 +592,7 @@ class AstCreator(filename: String, global: Global)
         .columnNumber(blockMethodNode.columnNumber)
       Seq(callAst(callNode, baseAst))
     } else {
-      // This is a object.method(params) call
+      // This is a object.method(params) or Class/Module::method() call
       val callNode = methodNameAst.head.nodes
         .filter(node => node.isInstanceOf[NewCall])
         .head
@@ -601,8 +601,12 @@ class AstCreator(filename: String, global: Global)
         .code(ctx.getText)
         .lineNumber(terminalNode.getSymbol().getLine())
         .columnNumber(terminalNode.getSymbol().getCharPositionInLine())
-      // baseAst is guaranteed to have at exactly one element
-      Seq(callAst(callNode, baseAst ++ argsAst))
+      if (ctx.COLON2() != null) {
+        Seq(callAst(callNode, argsAst, baseAst.headOption))
+      } else {
+        // baseAst is guaranteed to have at exactly one element
+        Seq(callAst(callNode, baseAst ++ argsAst))
+      }
     }
   }
 
@@ -671,8 +675,9 @@ class AstCreator(filename: String, global: Global)
       getClassNameScopedConstantReferenceContext(ctx.scopedConstantReference())
     } else if (ctx.CONSTANT_IDENTIFIER() != null) {
       baseClassName match {
-        case Some(value) => value + "." + ctx.CONSTANT_IDENTIFIER().getText
-        case None        => ctx.CONSTANT_IDENTIFIER().getText
+        case Some(value) =>
+          value // FIXME figure out how to account for inheritance + "." + ctx.CONSTANT_IDENTIFIER().getText
+        case None => ""
       }
     } else {
       Defines.Any
@@ -1393,16 +1398,11 @@ class AstCreator(filename: String, global: Global)
      * TODO find out how they should be used. Need to do this iff it adds any value
      */
 
-    val thisParam = NewMethodParameterIn()
-      .name("this")
-      .code("this")
-
-    val paramSeq = Seq(Ast(thisParam)) ++
-      astMethodParam.head.nodes
-        .map(node => {
-          Ast(node)
-        })
-        .toSeq
+    val paramSeq = astMethodParam.head.nodes
+      .map(node => {
+        Ast(node)
+      })
+      .toSeq
 
     methodNames.add(methodNode.name)
     val blockNode = NewBlock().typeFullName(Defines.Any)
