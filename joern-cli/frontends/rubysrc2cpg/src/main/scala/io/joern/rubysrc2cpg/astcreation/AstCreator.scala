@@ -667,26 +667,15 @@ class AstCreator(filename: String, global: Global)
     }
   }
 
-  def astForClassOrModuleReferenceContext(
-    ctx: ClassOrModuleReferenceContext,
-    baseClassName: Option[String] = None
-  ): Seq[Ast] = {
+  private def getClassName(ctx: ClassOrModuleReferenceContext): String = {
     val className = if (ctx.scopedConstantReference() != null) {
       getClassNameScopedConstantReferenceContext(ctx.scopedConstantReference())
     } else if (ctx.CONSTANT_IDENTIFIER() != null) {
-      baseClassName match {
-        case Some(value) =>
-          value // FIXME figure out how to account for inheritance + "." + ctx.CONSTANT_IDENTIFIER().getText
-        case None => ""
-      }
+      ctx.CONSTANT_IDENTIFIER().getText
     } else {
       Defines.Any
     }
-
-    if (className != Defines.Any) {
-      classStack.push(className)
-    }
-    Seq(Ast())
+    className
   }
 
   def astForClassDefinitionPrimaryContext(ctx: ClassDefinitionPrimaryContext): Seq[Ast] = {
@@ -702,8 +691,12 @@ class AstCreator(filename: String, global: Global)
         None
       }
 
-      val classOrModuleRefAst =
-        astForClassOrModuleReferenceContext(ctx.classDefinition().classOrModuleReference(), baseClassName)
+      val className =
+        getClassName(ctx.classDefinition().classOrModuleReference())
+
+      if (className != Defines.Any) {
+        classStack.push(className)
+      }
       val bodyAst = astForBodyStatementContext(ctx.classDefinition().bodyStatement())
       val bodyAstSansModifiers = bodyAst
         .filterNot(ast => {
@@ -726,7 +719,7 @@ class AstCreator(filename: String, global: Global)
       val blockNode = NewBlock()
         .code(ctx.getText)
       val bodyBlockAst = blockAst(blockNode, bodyAstSansModifiers.toList)
-      Seq(classOrModuleRefAst.head.withChild(bodyBlockAst))
+      Seq(bodyBlockAst)
     } else {
       // TODO test for this is pending due to lack of understanding to generate an example
       val astExprOfCommand = astForExpressionOrCommand(ctx.classDefinition().expressionOrCommand())
@@ -1422,11 +1415,9 @@ class AstCreator(filename: String, global: Global)
   }
 
   def astForModuleDefinitionPrimaryContext(ctx: ModuleDefinitionPrimaryContext): Seq[Ast] = {
-    val referenceAsts = astForClassOrModuleReferenceContext(ctx.moduleDefinition().classOrModuleReference())
-    val bodyStmtAsts  = astForBodyStatementContext(ctx.moduleDefinition().bodyStatement())
-    if (classStack.size > 0) {
-      classStack.pop()
-    }
+    val moduleName   = getClassName(ctx.moduleDefinition().classOrModuleReference())
+    val bodyStmtAsts = astForBodyStatementContext(ctx.moduleDefinition().bodyStatement())
+
     val bodyAstSansModifiers = bodyStmtAsts
       .filterNot(ast => {
         val nodes = ast.nodes
@@ -1441,7 +1432,8 @@ class AstCreator(filename: String, global: Global)
           false
         }
       })
-    Seq(referenceAsts.head.withChildren(bodyAstSansModifiers))
+    val blockNode = NewBlock().typeFullName(Defines.Any)
+    Seq(blockAst(blockNode, bodyAstSansModifiers.toList))
   }
 
   def astForMultipleAssignmentExpressionContext(ctx: MultipleAssignmentExpressionContext): Seq[Ast] = {
