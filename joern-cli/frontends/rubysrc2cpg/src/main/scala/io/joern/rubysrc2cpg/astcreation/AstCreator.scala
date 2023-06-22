@@ -85,6 +85,32 @@ class AstCreator(filename: String, global: Global)
     }
     scope.popScope()
 
+    // Resolve yield calls
+    val methodsWithYield = statementAsts
+      .flatMap(ast => {
+        ast.nodes
+          .filter(_.isInstanceOf[NewMethod])
+          .filter(_.asInstanceOf[NewMethod].name.endsWith(YIELD_SUFFIX))
+          .map(_.asInstanceOf[NewMethod])
+      })
+
+    val methodsRefs = statementAsts
+      .flatMap(ast => {
+        ast.nodes
+          .filter(_.isInstanceOf[NewMethodRef])
+          .map(_.asInstanceOf[NewMethodRef])
+      })
+
+    methodsWithYield.foreach(m => {
+      val methodRef = methodsRefs.find(_.methodFullName == m.fullName)
+      methodRef match {
+        case Some(methodRef) =>
+          methodRef.lineNumber(m.lineNumber)
+          methodRef.columnNumber(m.columnNumber)
+        case None =>
+      }
+    })
+
     val name = ":program"
     val programMethod =
       NewMethod()
@@ -2031,8 +2057,6 @@ class AstCreator(filename: String, global: Global)
         .methodFullName(UNRESOLVED_YIELD)
         .typeFullName(DynamicCallUnknownFullName)
         .code(ctx.getText)
-        .lineNumber(ctx.YIELD().getSymbol.getLine)
-        .columnNumber(ctx.YIELD().getSymbol.getCharPositionInLine)
 
       val callNode = NewCall()
         .name(operatorName)
@@ -2121,8 +2145,6 @@ class AstCreator(filename: String, global: Global)
       .methodFullName(UNRESOLVED_YIELD)
       .typeFullName(DynamicCallUnknownFullName)
       .code(ctx.getText)
-      .lineNumber(ctx.YIELD().getSymbol.getLine)
-      .columnNumber(ctx.YIELD().getSymbol.getCharPositionInLine)
 
     val callNode = NewCall()
       .name(operatorName)
