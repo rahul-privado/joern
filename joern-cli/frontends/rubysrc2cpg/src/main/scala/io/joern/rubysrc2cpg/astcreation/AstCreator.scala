@@ -127,6 +127,7 @@ class AstCreator(filename: String, global: Global)
     val keyValueAssociation     = "<operator>.keyValueAssociation"
     val activeRecordAssociation = "<operator>.activeRecordAssociation"
     val undef                   = "<operator>.undef"
+    val yieldOp                 = "<operator>.yield"
   }
   private def getOperatorName(token: Token): String = token.getType match {
     case AMP                 => Operators.logicalAnd
@@ -1407,22 +1408,22 @@ class AstCreator(filename: String, global: Global)
     astBody
       .flatMap(ast =>
         ast.nodes
-          .filter(_.isInstanceOf[NewCall])
-          .filter(_.asInstanceOf[NewCall].name == UNRESOLVED_YIELD)
+          .filter(_.isInstanceOf[NewMethodRef])
       )
       .foreach(node => {
-        val yieldCallNode  = node.asInstanceOf[NewCall]
+        val methodRefNode  = node.asInstanceOf[NewMethodRef]
         val name           = methodNode.name
         val methodFullName = s"$filename:$name"
-        yieldCallNode.name(name + YIELD_SUFFIX)
-        yieldCallNode.methodFullName(methodFullName + YIELD_SUFFIX)
-        methodNamesWithYield.add(methodNode.name)
+        methodRefNode.methodFullName(methodFullName + YIELD_SUFFIX)
+
         /*
-         * These are calls to the yield block of this method.
+         * These are method refs to the yield block of this method.
          * Add this method to the list of yield blocks.
          * The add() is idempotent and so adding the same method multiple times makes no difference.
          * It just needs to be added at this place so that it gets added iff it has a yield block
          */
+
+        methodNamesWithYield.add(methodNode.name)
 
       })
 
@@ -1708,6 +1709,12 @@ class AstCreator(filename: String, global: Global)
      * Model a block as a method
      */
 
+    val dummyLiteral = NewLiteral()
+      .typeFullName(Defines.Any)
+    val dummyLastStatement = Ast(
+      dummyLiteral
+    ) // Return for block method will be created out of this statement since block has no return
+
     val astMethodParam = if (ctxParam != null) {
       astForBlockParameterContext(ctxParam)
     } else {
@@ -1715,7 +1722,7 @@ class AstCreator(filename: String, global: Global)
     }
 
     scope.pushNewScope(())
-    val astBody = astForStatementsContext(ctxStmt)
+    val astBody = astForStatementsContext(ctxStmt) ++ Seq(dummyLastStatement)
     scope.popScope()
 
     val methodNode = NewMethod()
@@ -2017,18 +2024,26 @@ class AstCreator(filename: String, global: Global)
       astForArgumentsWithoutParenthesesContext(ctx.argumentsWithoutParentheses())
     } else if (ctx.YIELD() != null) {
       // ctx.primary() is expected to be null
-      val argsAst = astForArgumentsWithoutParenthesesContext(ctx.argumentsWithoutParentheses())
+      val argsAst      = astForArgumentsWithoutParenthesesContext(ctx.argumentsWithoutParentheses())
+      val operatorName = RubyOperators.yieldOp
+
+      val methodRefNode = NewMethodRef()
+        .methodFullName(UNRESOLVED_YIELD)
+        .typeFullName(DynamicCallUnknownFullName)
+        .code(ctx.getText)
+        .lineNumber(ctx.YIELD().getSymbol.getLine)
+        .columnNumber(ctx.YIELD().getSymbol.getCharPositionInLine)
 
       val callNode = NewCall()
-        .name(UNRESOLVED_YIELD)
+        .name(operatorName)
         .code(ctx.getText)
-        .methodFullName(UNRESOLVED_YIELD)
+        .methodFullName(operatorName)
         .signature("")
         .dispatchType(DispatchTypes.STATIC_DISPATCH)
         .typeFullName(Defines.Any)
         .lineNumber(ctx.YIELD().getSymbol().getLine())
         .columnNumber(ctx.YIELD().getSymbol().getCharPositionInLine())
-      Seq(callAst(callNode, argsAst))
+      Seq(callAst(callNode, argsAst ++ Seq(Ast(methodRefNode))))
     } else if (ctx.methodIdentifier() != null) {
       val methodIdentifierAsts = astForMethodIdentifierContext(ctx.methodIdentifier(), ctx.getText)
       methodNameAsIdentifierStack.push(methodIdentifierAsts.head)
@@ -2101,16 +2116,25 @@ class AstCreator(filename: String, global: Global)
     if (ctx.arguments() == null) return Seq(Ast())
     val argsAst = astForArgumentsContext(ctx.arguments())
 
-    val callNode = NewCall()
-      .name(UNRESOLVED_YIELD)
-      .code(ctx.getText)
+    val operatorName = RubyOperators.yieldOp
+    val methodRefNode = NewMethodRef()
       .methodFullName(UNRESOLVED_YIELD)
+      .typeFullName(DynamicCallUnknownFullName)
+      .code(ctx.getText)
+      .lineNumber(ctx.YIELD().getSymbol.getLine)
+      .columnNumber(ctx.YIELD().getSymbol.getCharPositionInLine)
+
+    val callNode = NewCall()
+      .name(operatorName)
+      .code(ctx.getText)
+      .methodFullName(operatorName)
       .signature("")
       .dispatchType(DispatchTypes.STATIC_DISPATCH)
       .typeFullName(Defines.Any)
       .lineNumber(ctx.YIELD().getSymbol().getLine())
       .columnNumber(ctx.YIELD().getSymbol().getCharPositionInLine())
-    Seq(callAst(callNode, argsAst))
+
+    Seq(callAst(callNode, argsAst ++ Seq(Ast(methodRefNode))))
   }
 
   def astForYieldWithOptionalArgumentPrimaryContext(ctx: YieldWithOptionalArgumentPrimaryContext): Seq[Ast] = {
