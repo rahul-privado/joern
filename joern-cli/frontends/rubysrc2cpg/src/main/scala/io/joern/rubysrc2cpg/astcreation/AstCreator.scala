@@ -44,15 +44,10 @@ class AstCreator(filename: String, global: Global)
   protected val methodNamesWithYield = mutable.HashSet[String]()
 
   /*
-   *Fake methods created from yield blocks and their yield calls will have this suffix in their names
-   */
-  private val YIELD_SUFFIX = "_yield"
-
-  /*
    * This is used to mark call nodes created due to yield calls. This is set in their names at creation.
    * The appropriate name wrt the names of their actual methods is set later in them.
    */
-  private val UNRESOLVED_YIELD = "unresolved_yield"
+  private val YIELD_BLOCK_ARG = "yield_block_arg"
 
   protected def createIdentifierWithScope(
     ctx: ParserRuleContext,
@@ -84,32 +79,6 @@ class AstCreator(filename: String, global: Global)
       List[Ast](Ast())
     }
     scope.popScope()
-
-    // Resolve yield calls
-    val methodsWithYield = statementAsts
-      .flatMap(ast => {
-        ast.nodes
-          .filter(_.isInstanceOf[NewMethod])
-          .filter(_.asInstanceOf[NewMethod].name.endsWith(YIELD_SUFFIX))
-          .map(_.asInstanceOf[NewMethod])
-      })
-
-    val methodsRefs = statementAsts
-      .flatMap(ast => {
-        ast.nodes
-          .filter(_.isInstanceOf[NewMethodRef])
-          .map(_.asInstanceOf[NewMethodRef])
-      })
-
-    methodsWithYield.foreach(m => {
-      val methodRef = methodsRefs.find(_.methodFullName == m.fullName)
-      methodRef match {
-        case Some(methodRef) =>
-          methodRef.lineNumber(m.lineNumber)
-          methodRef.columnNumber(m.columnNumber)
-        case None =>
-      }
-    })
 
     val name = ":program"
     val programMethod =
@@ -995,22 +964,31 @@ class AstCreator(filename: String, global: Global)
 
   def astForInvocationWithBlockOnlyPrimaryContext(ctx: InvocationWithBlockOnlyPrimaryContext): Seq[Ast] = {
     val methodIdAst = astForMethodIdentifierContext(ctx.methodIdentifier(), ctx.getText, true)
-    val blockName = methodIdAst.head.nodes.head
+    val callNode = methodIdAst.head.nodes.head
       .asInstanceOf[NewCall]
-      .name
+    val blockName = callNode.name
 
-    val isYieldMethod = if (blockName.endsWith(YIELD_SUFFIX)) {
-      val lookupMethodName = blockName.take(blockName.length - YIELD_SUFFIX.length)
-      methodNamesWithYield.contains(lookupMethodName)
-    } else {
-      false
-    }
-
-    if (isYieldMethod) {
+    if (methodNamesWithYield.contains(blockName)) {
       /*
        * This is a yield block. Create a fake method out of it. The yield call will be a call to the yield block
        */
-      astForBlockContext(ctx.block(), Some(blockName))
+
+      // dummy yield method
+      val line           = ctx.WS().getSymbol.getLine
+      val yieldBlockAsts = astForBlockContext(ctx.block(), Some(blockName + line))
+
+      val yieldBlockMethodNode =
+        yieldBlockAsts.head.nodes.head
+          .asInstanceOf[NewMethod]
+
+      val yieldBlockMethodRefNode = NewMethodRef()
+        .methodFullName(yieldBlockMethodNode.fullName)
+        .typeFullName(DynamicCallUnknownFullName)
+        .code(ctx.getText)
+        .lineNumber(yieldBlockMethodNode.lineNumber)
+        .columnNumber(yieldBlockMethodNode.columnNumber)
+
+      Seq(callAst(callNode, Seq(Ast(yieldBlockMethodRefNode)))) ++ yieldBlockAsts
     } else {
       val blockAst = astForBlockContext(ctx.block())
       blockAst ++ methodIdAst
@@ -1102,16 +1080,10 @@ class AstCreator(filename: String, global: Global)
     astForDefinedMethodNameContext(ctx.definedMethodName())
   }
 
-  def astForCallNode(localIdentifier: TerminalNode, code: String, isYieldBlock: Boolean = false): Seq[Ast] = {
-    val column = localIdentifier.getSymbol().getCharPositionInLine()
-    val line   = localIdentifier.getSymbol().getLine()
-    val nameSuffix =
-      if (isYieldBlock) {
-        YIELD_SUFFIX
-      } else {
-        ""
-      }
-    val name           = getActualMethodName(localIdentifier.getText) + nameSuffix
+  def astForCallNode(localIdentifier: TerminalNode, code: String): Seq[Ast] = {
+    val column         = localIdentifier.getSymbol().getCharPositionInLine()
+    val line           = localIdentifier.getSymbol().getLine()
+    val name           = getActualMethodName(localIdentifier.getText)
     val methodFullName = s"$filename:$name"
 
     val callNode = NewCall()
@@ -1161,7 +1133,7 @@ class AstCreator(filename: String, global: Global)
           createIdentifierWithScope(ctx, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
         Seq(Ast(node))
       } else {
-        astForCallNode(localVar, code, methodNamesWithYield.contains(varSymbol.getText))
+        astForCallNode(localVar, code)
       }
     } else if (ctx.CONSTANT_IDENTIFIER() != null) {
       val localVar  = ctx.CONSTANT_IDENTIFIER()
@@ -1430,29 +1402,6 @@ class AstCreator(filename: String, global: Global)
       .filename(filename)
     callNode.methodFullName(classPath + callNode.name)
 
-    // process yield calls.
-    astBody
-      .flatMap(ast =>
-        ast.nodes
-          .filter(_.isInstanceOf[NewMethodRef])
-      )
-      .foreach(node => {
-        val methodRefNode  = node.asInstanceOf[NewMethodRef]
-        val name           = methodNode.name
-        val methodFullName = s"$filename:$name"
-        methodRefNode.methodFullName(methodFullName + YIELD_SUFFIX)
-
-        /*
-         * These are method refs to the yield block of this method.
-         * Add this method to the list of yield blocks.
-         * The add() is idempotent and so adding the same method multiple times makes no difference.
-         * It just needs to be added at this place so that it gets added iff it has a yield block
-         */
-
-        methodNamesWithYield.add(methodNode.name)
-
-      })
-
     val methodRetNode = NewMethodReturn()
       .lineNumber(None)
       .columnNumber(None)
@@ -1464,11 +1413,27 @@ class AstCreator(filename: String, global: Global)
      * TODO find out how they should be used. Need to do this iff it adds any value
      */
 
-    val paramSeq = astMethodParam.head.nodes
-      .map(node => {
-        Ast(node)
-      })
-      .toSeq
+    val isYieldMethod = astBody
+      .flatMap(ast =>
+        ast.nodes
+          .filter(_.isInstanceOf[NewCall])
+          .filter(_.asInstanceOf[NewCall].name == RubyOperators.yieldOp)
+      )
+      .size > 0
+
+    val paramSeq = if (isYieldMethod) {
+      methodNamesWithYield.add(methodNode.name)
+      val param = NewMethodParameterIn()
+        .name(YIELD_BLOCK_ARG)
+        .code(ctx.getText)
+      Seq(Ast(param))
+    } else {
+      astMethodParam.head.nodes
+        .map(node => {
+          Ast(node)
+        })
+        .toSeq
+    }
 
     methodNames.add(methodNode.name)
     val blockNode = NewBlock().typeFullName(Defines.Any)
@@ -2053,8 +2018,10 @@ class AstCreator(filename: String, global: Global)
       val argsAst      = astForArgumentsWithoutParenthesesContext(ctx.argumentsWithoutParentheses())
       val operatorName = RubyOperators.yieldOp
 
+      // TODO pass argsAst as an argument to a call node for the methodRef.
+      // pass this call node for the methodRef as an argument to the below call node
       val methodRefNode = NewMethodRef()
-        .methodFullName(UNRESOLVED_YIELD)
+        .methodFullName(YIELD_BLOCK_ARG)
         .typeFullName(DynamicCallUnknownFullName)
         .code(ctx.getText)
 
@@ -2140,9 +2107,12 @@ class AstCreator(filename: String, global: Global)
     if (ctx.arguments() == null) return Seq(Ast())
     val argsAst = astForArgumentsContext(ctx.arguments())
 
+    // TODO pass argsAst as an argument to a call node for the methodRef.
+    // pass this call node for the methodRef as an argument to the below call node
+
     val operatorName = RubyOperators.yieldOp
     val methodRefNode = NewMethodRef()
-      .methodFullName(UNRESOLVED_YIELD)
+      .methodFullName(YIELD_BLOCK_ARG)
       .typeFullName(DynamicCallUnknownFullName)
       .code(ctx.getText)
 
