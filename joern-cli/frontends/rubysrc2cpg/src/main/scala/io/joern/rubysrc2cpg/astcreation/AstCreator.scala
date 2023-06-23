@@ -47,7 +47,7 @@ class AstCreator(filename: String, global: Global)
    * This is used to mark call nodes created due to yield calls. This is set in their names at creation.
    * The appropriate name wrt the names of their actual methods is set later in them.
    */
-  private val YIELD_BLOCK_ARG = "yield_block_arg"
+  private val YIELD_CALLBACK_INVOCATION = "yield_callback_invocation"
 
   protected def createIdentifierWithScope(
     ctx: ParserRuleContext,
@@ -1424,7 +1424,7 @@ class AstCreator(filename: String, global: Global)
     val paramSeq = if (isYieldMethod) {
       methodNamesWithYield.add(methodNode.name)
       val param = NewMethodParameterIn()
-        .name(YIELD_BLOCK_ARG)
+        .name(YIELD_CALLBACK_INVOCATION)
         .code(ctx.getText)
       Seq(Ast(param))
     } else {
@@ -2018,14 +2018,12 @@ class AstCreator(filename: String, global: Global)
       val argsAst      = astForArgumentsWithoutParenthesesContext(ctx.argumentsWithoutParentheses())
       val operatorName = RubyOperators.yieldOp
 
-      // TODO pass argsAst as an argument to a call node for the methodRef.
-      // pass this call node for the methodRef as an argument to the below call node
       val methodRefNode = NewMethodRef()
-        .methodFullName(YIELD_BLOCK_ARG)
+        .methodFullName(YIELD_CALLBACK_INVOCATION)
         .typeFullName(DynamicCallUnknownFullName)
         .code(ctx.getText)
 
-      val callNode = NewCall()
+      val operatorCallNode = NewCall()
         .name(operatorName)
         .code(ctx.getText)
         .methodFullName(operatorName)
@@ -2034,7 +2032,18 @@ class AstCreator(filename: String, global: Global)
         .typeFullName(Defines.Any)
         .lineNumber(ctx.YIELD().getSymbol().getLine())
         .columnNumber(ctx.YIELD().getSymbol().getCharPositionInLine())
-      Seq(callAst(callNode, argsAst ++ Seq(Ast(methodRefNode))))
+
+      val methodRefCallNode = NewCall()
+        .name(YIELD_CALLBACK_INVOCATION)
+        .code(ctx.getText)
+        .methodFullName(operatorName)
+        .signature("")
+        .dispatchType(DispatchTypes.STATIC_DISPATCH)
+        .typeFullName(Defines.Any)
+        .lineNumber(ctx.YIELD().getSymbol().getLine())
+        .columnNumber(ctx.YIELD().getSymbol().getCharPositionInLine())
+      val methodRefAst = callAst(methodRefCallNode, Seq(Ast(methodRefNode)))
+      Seq(callAst(operatorCallNode, argsAst ++ Seq(methodRefAst)))
     } else if (ctx.methodIdentifier() != null) {
       val methodIdentifierAsts = astForMethodIdentifierContext(ctx.methodIdentifier(), ctx.getText)
       methodNameAsIdentifierStack.push(methodIdentifierAsts.head)
@@ -2107,16 +2116,13 @@ class AstCreator(filename: String, global: Global)
     if (ctx.arguments() == null) return Seq(Ast())
     val argsAst = astForArgumentsContext(ctx.arguments())
 
-    // TODO pass argsAst as an argument to a call node for the methodRef.
-    // pass this call node for the methodRef as an argument to the below call node
-
     val operatorName = RubyOperators.yieldOp
     val methodRefNode = NewMethodRef()
-      .methodFullName(YIELD_BLOCK_ARG)
+      .methodFullName(YIELD_CALLBACK_INVOCATION)
       .typeFullName(DynamicCallUnknownFullName)
       .code(ctx.getText)
 
-    val callNode = NewCall()
+    val operatorCallNode = NewCall()
       .name(operatorName)
       .code(ctx.getText)
       .methodFullName(operatorName)
@@ -2126,7 +2132,18 @@ class AstCreator(filename: String, global: Global)
       .lineNumber(ctx.YIELD().getSymbol().getLine())
       .columnNumber(ctx.YIELD().getSymbol().getCharPositionInLine())
 
-    Seq(callAst(callNode, argsAst ++ Seq(Ast(methodRefNode))))
+    val methodRefCallNode = NewCall()
+      .name(YIELD_CALLBACK_INVOCATION)
+      .code(ctx.getText)
+      .methodFullName(operatorName)
+      .signature("")
+      .dispatchType(DispatchTypes.STATIC_DISPATCH)
+      .typeFullName(Defines.Any)
+      .lineNumber(ctx.YIELD().getSymbol().getLine())
+      .columnNumber(ctx.YIELD().getSymbol().getCharPositionInLine())
+    val methodRefAst = callAst(methodRefCallNode, Seq(Ast(methodRefNode)))
+
+    Seq(callAst(operatorCallNode, argsAst ++ Seq(methodRefAst)))
   }
 
   def astForYieldWithOptionalArgumentPrimaryContext(ctx: YieldWithOptionalArgumentPrimaryContext): Seq[Ast] = {
