@@ -213,7 +213,7 @@ class AstCreator(
       val xAsts = astForPrimaryContext(ctx.primary())
       val localVar = {
         if (ctx.LOCAL_VARIABLE_IDENTIFIER() != null) {
-          ctx.LOCAL_VARIABLE_IDENTIFIER()
+          ctx.LOCAL_VARIABLE_IDENTIFIER() // failing test
         } else if (ctx.CONSTANT_IDENTIFIER() != null) {
           ctx.CONSTANT_IDENTIFIER()
         } else {
@@ -254,7 +254,11 @@ class AstCreator(
   def astForMultipleRightHandSideContext(ctx: MultipleRightHandSideContext): Seq[Ast] = {
     if (ctx == null) return Seq(Ast())
 
-    val exprAsts = ctx.expressionOrCommands().expressionOrCommand().asScala.flatMap(astForExpressionOrCommand).toSeq
+    val exprAsts = if (ctx.expressionOrCommands() != null) {
+      ctx.expressionOrCommands().expressionOrCommand().asScala.flatMap(astForExpressionOrCommand).toSeq
+    } else {
+      Seq()
+    }
 
     val paramAsts = if (ctx.splattingArgument() != null) {
       val splattingAsts = astForSplattingArgumentContext(ctx.splattingArgument())

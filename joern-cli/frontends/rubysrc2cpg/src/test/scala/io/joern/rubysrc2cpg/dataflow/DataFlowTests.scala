@@ -172,7 +172,6 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
   }
 
   "Data flow through multiple assignments" should {
-    // TODO test a lot more multiple assignments
     val cpg = code("""
         |x = 1
         |y = 2
@@ -213,6 +212,20 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
         |(c, d) = foo, b
         |puts c
         |
+        |""".stripMargin)
+
+    "be found" in {
+      val src  = cpg.identifier.name("x").l
+      val sink = cpg.call.name("puts").l
+      sink.reachableByFlows(src).l.size shouldBe 2
+    }
+  }
+
+  "Data flow through single LHS and splatting RHS" should {
+    val cpg = code("""
+        |x=1
+        |y=*x
+        |puts y
         |""".stripMargin)
 
     "be found" in {
