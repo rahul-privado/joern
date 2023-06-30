@@ -1128,7 +1128,7 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
     }
   }
 
-  "Data flow through xdotySingleLeftHandSide" should {
+  "Data flow through xdotySingleLeftHandSide through a constant on left of the ::" should {
     val cpg = code("""
         |module SomeModule
         |SomeConstant = 100
@@ -1136,6 +1136,26 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
         |
         |x = 2
         |SomeModule::SomeConstant = x
+        |y = SomeModule::SomeConstant
+        |puts y
+        |""".stripMargin)
+
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).size shouldBe 2
+    }
+  }
+
+  "Data flow through xdotySingleLeftHandSide through a local on left of the ::" ignore {
+    val cpg = code("""
+        |module SomeModule
+        |SomeConstant = 100
+        |end
+        |
+        |x = 2
+        |local = SomeModule
+        |local::SomeConstant = x
         |y = SomeModule::SomeConstant
         |puts y
         |""".stripMargin)
