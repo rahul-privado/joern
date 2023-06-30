@@ -629,7 +629,7 @@ class AstCreator(
       val paramAsts =
         if (ctx.packingLeftHandSide() != null) {
           val packingLHSAst = astForPackingLeftHandSideContext(ctx.packingLeftHandSide())
-          packingLHSAst ++ multipleLHSAsts
+          packingLHSAst ++ multipleLHSAsts // failing test case
         } else {
           multipleLHSAsts
         }
