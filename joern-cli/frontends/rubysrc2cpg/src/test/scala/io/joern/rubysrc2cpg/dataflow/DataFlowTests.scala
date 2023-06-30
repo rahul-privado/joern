@@ -201,6 +201,21 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
     }
   }
 
+  "Data flow through multiple assignments with multi level grouping" ignore {
+    val cpg = code("""
+        |x = 1
+        |y = 2
+        |z = 3
+        |a,(b,c) = z,y,x
+        |puts a
+        |""".stripMargin)
+
+    "be found" in {
+      val src  = cpg.identifier.name("x").l
+      val sink = cpg.call.name("puts").l
+      sink.reachableByFlows(src).l.size shouldBe 2
+    }
+  }
   "Data flow through multiple assignments with grouping and method in RHS" should {
     val cpg = code("""
         |def foo()

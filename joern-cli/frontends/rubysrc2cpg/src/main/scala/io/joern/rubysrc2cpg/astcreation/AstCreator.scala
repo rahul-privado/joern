@@ -621,7 +621,7 @@ class AstCreator(
           if (item.singleLeftHandSide() != null) {
             astForSingleLeftHandSideContext(item.singleLeftHandSide())
           } else {
-            astForGroupedLeftHandSideContext(item.groupedLeftHandSide())
+            astForGroupedLeftHandSideContext(item.groupedLeftHandSide()) // failing test case
           }
         })
         .toList
