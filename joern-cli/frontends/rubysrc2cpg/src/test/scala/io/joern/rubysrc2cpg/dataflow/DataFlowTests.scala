@@ -1448,5 +1448,44 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
         sink.reachableByFlows(source).size shouldBe 2
       }
     }
+
+    "Data flow through break with args" should {
+      val cpg = code("""
+          |x = 1
+          |arr = [x, 2, 3]
+          |y = arr.each do |num|
+          |  break num if num < 2
+          |  puts num
+          |end
+          |puts y
+          |
+          |""".stripMargin)
+
+      "find flows to the sink" in {
+        val source = cpg.identifier.name("x").l
+        val sink   = cpg.call.name("puts").l
+        sink.reachableByFlows(source).size shouldBe 4
+      }
+    }
+
+    "Data flow through next with args" ignore {
+      val cpg = code("""
+          |x = 10
+          |a = [1, 2, 3]
+          |y = a.map do |num|
+          |  next x if num.even?
+          |  num
+          |end
+          |
+          |puts y
+          |
+          |""".stripMargin)
+
+      "find flows to the sink" in {
+        val source = cpg.identifier.name("x").l
+        val sink   = cpg.call.name("puts").l
+        sink.reachableByFlows(source).size shouldBe 2
+      }
+    }
   }
 }

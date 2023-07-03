@@ -714,17 +714,31 @@ class AstCreator(
       val argAst = astForArguments(ctx.arguments())
       Seq(returnAst(retNode, argAst))
     case ctx: BreakArgsInvocationWithoutParenthesesContext =>
-      val node = NewControlStructure()
-        .controlStructureType(ControlStructureTypes.BREAK)
-        .lineNumber(ctx.BREAK().getSymbol.getLine)
-        .columnNumber(ctx.BREAK().getSymbol.getCharPositionInLine)
-        .code(ctx.getText)
-      Seq(
-        Ast(node)
-          .withChildren(astForArguments(ctx.arguments()))
-      )
+      if (ctx.arguments() == null) {
+        val node = NewControlStructure()
+          .controlStructureType(ControlStructureTypes.BREAK)
+          .lineNumber(ctx.BREAK().getSymbol.getLine)
+          .columnNumber(ctx.BREAK().getSymbol.getCharPositionInLine)
+          .code(ctx.getText)
+        Seq(
+          Ast(node)
+            .withChildren(astForArguments(ctx.arguments()))
+        )
+      } else {
+        /*
+         * This is break with args inside a block. The argument passed to break will be returned by the bloc
+         * Model this as a return since this is effectively a  return
+         */
+        val retNode = NewReturn()
+          .code(ctx.getText)
+          .lineNumber(ctx.BREAK().getSymbol().getLine)
+          .columnNumber(ctx.BREAK().getSymbol().getCharPositionInLine)
+        val argAst = astForArguments(ctx.arguments())
+        Seq(returnAst(retNode, argAst))
+      }
     case ctx: NextArgsInvocationWithoutParenthesesContext =>
-      astForArguments(ctx.arguments())
+      // failing test case. Exception:  Only jump labels and integer literals are currently supported for continue statements.
+      // this overlaps with the problem if returning a value from a block
       val node = NewControlStructure()
         .controlStructureType(ControlStructureTypes.CONTINUE)
         .lineNumber(ctx.NEXT().getSymbol.getLine)
