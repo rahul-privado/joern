@@ -649,7 +649,7 @@ class AstCreator(
     if (ctx.singleLeftHandSide() != null) {
       astForSingleLeftHandSideContext(ctx.singleLeftHandSide())
     } else if (ctx.multipleLeftHandSide() != null) {
-      astForMultipleLeftHandSideContext(ctx.multipleLeftHandSide())
+      astForMultipleLeftHandSideContext(ctx.multipleLeftHandSide()) // test case unknown
     } else {
       Seq(Ast())
     }
