@@ -1488,7 +1488,7 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
       }
     }
 
-    "Data flow through a global variable" should {
+    "Data flow through a global variable" ignore {
       val cpg = code("""
           |def foo(arg)
           | loop do

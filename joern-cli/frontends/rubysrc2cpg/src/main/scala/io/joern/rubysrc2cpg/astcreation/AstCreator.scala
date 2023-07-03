@@ -754,7 +754,7 @@ class AstCreator(
   }
 
   def astForInvocationWithBlockOnlyPrimaryContext(ctx: InvocationWithBlockOnlyPrimaryContext): Seq[Ast] = {
-    val methodIdAst = astForMethodIdentifierContext(ctx.methodIdentifier(), ctx.getText, true)
+    val methodIdAst = astForMethodIdentifierContext(ctx.methodIdentifier(), ctx.getText)
     val blockName = methodIdAst.head.nodes.head
       .asInstanceOf[NewCall]
       .name
@@ -778,7 +778,7 @@ class AstCreator(
   }
 
   def astForInvocationWithParenthesesPrimaryContext(ctx: InvocationWithParenthesesPrimaryContext): Seq[Ast] = {
-    val methodIdAst = astForMethodIdentifierContext(ctx.methodIdentifier(), ctx.getText, true)
+    val methodIdAst = astForMethodIdentifierContext(ctx.methodIdentifier(), ctx.getText)
     val parenAst    = astForArgumentsWithParenthesesContext(ctx.argumentsWithParentheses())
     val callNode    = methodIdAst.head.nodes.filter(_.isInstanceOf[NewCall]).head.asInstanceOf[NewCall]
     callNode.name(getActualMethodName(callNode.name))
@@ -869,6 +869,7 @@ class AstCreator(
   }
 
   def astForMethodOnlyIdentifier(ctx: MethodOnlyIdentifierContext): Seq[Ast] = {
+    // relevance of this production is in question
     if (ctx.LOCAL_VARIABLE_IDENTIFIER() != null) {
       astForCallNode(ctx.LOCAL_VARIABLE_IDENTIFIER(), ctx.getText)
     } else if (ctx.CONSTANT_IDENTIFIER() != null) {
@@ -878,43 +879,17 @@ class AstCreator(
     }
   }
 
-  def astForMethodIdentifierContext(
-    ctx: MethodIdentifierContext,
-    code: String,
-    definitelyMethod: Boolean = false
-  ): Seq[Ast] = {
+  def astForMethodIdentifierContext(ctx: MethodIdentifierContext, code: String): Seq[Ast] = {
+    // the local/const identifiers are definitely method names
     if (ctx.methodOnlyIdentifier() != null) {
       astForMethodOnlyIdentifier(ctx.methodOnlyIdentifier())
     } else if (ctx.LOCAL_VARIABLE_IDENTIFIER() != null) {
       val localVar  = ctx.LOCAL_VARIABLE_IDENTIFIER()
       val varSymbol = localVar.getSymbol
-
-      /*
-       * Preferences
-       * 1. If definitelyMethod is SET, we are in the context of processing a method or call
-       * node wrt the statement being processed. Create a call node
-       * 2. If an identifier with the variable name exists within the scope, create a identifier node
-       * 3. Otherwise default to call node creation since there is no reason (point 2) to create a identifier node
-       * 4. Applies to CONSTANT_IDENTIFIER as well
-       */
-
-      if (scope.lookupVariable(varSymbol.getText).isDefined && !definitelyMethod) {
-        val node =
-          createIdentifierWithScope(ctx, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
-        Seq(Ast(node))
-      } else {
-        astForCallNode(localVar, code, methodNamesWithYield.contains(varSymbol.getText))
-      }
+      astForCallNode(localVar, code, methodNamesWithYield.contains(varSymbol.getText))
     } else if (ctx.CONSTANT_IDENTIFIER() != null) {
-      val localVar  = ctx.CONSTANT_IDENTIFIER()
-      val varSymbol = localVar.getSymbol
-      if (scope.lookupVariable(varSymbol.getText).isDefined && !definitelyMethod) {
-        val node =
-          createIdentifierWithScope(ctx, varSymbol.getText, varSymbol.getText, Defines.Any, List(Defines.Any))
-        Seq(Ast(node))
-      } else {
-        astForCallNode(localVar, code)
-      }
+      val localVar = ctx.CONSTANT_IDENTIFIER()
+      astForCallNode(localVar, code)
     } else {
       Seq(Ast())
     }
@@ -945,7 +920,7 @@ class AstCreator(
 
   def astForMethodNameContext(ctx: MethodNameContext): Seq[Ast] = {
     if (ctx.methodIdentifier() != null) {
-      astForMethodIdentifierContext(ctx.methodIdentifier(), ctx.getText, true)
+      astForMethodIdentifierContext(ctx.methodIdentifier(), ctx.getText)
     } else if (ctx.operatorMethodName() != null) {
       astForOperatorMethodNameContext(ctx.operatorMethodName())
     } else if (ctx.keyword() != null) {
@@ -1355,7 +1330,7 @@ class AstCreator(
     case ctx: RubyParser.ArgsAndDoBlockAndMethodIdCommandWithDoBlockContext =>
       val argsAsts     = astForArguments(ctx.argumentsWithoutParentheses().arguments())
       val doBlockAsts  = astForDoBlockContext(ctx.doBlock())
-      val methodIdAsts = astForMethodIdentifierContext(ctx.methodIdentifier(), ctx.getText, true)
+      val methodIdAsts = astForMethodIdentifierContext(ctx.methodIdentifier(), ctx.getText)
       methodIdAsts ++ argsAsts ++ doBlockAsts
     case ctx: RubyParser.PrimaryMethodArgsDoBlockCommandWithDoBlockContext =>
       val argsAsts       = astForArguments(ctx.argumentsWithoutParentheses().arguments())
