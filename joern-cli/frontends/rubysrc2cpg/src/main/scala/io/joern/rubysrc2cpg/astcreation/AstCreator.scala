@@ -947,6 +947,8 @@ class AstCreator(
   def astForAssignmentLikeMethodIdentifierContext(ctx: AssignmentLikeMethodIdentifierContext): Seq[Ast] = {
     if (ctx == null) return Seq(Ast())
 
+    // this is a assignment method. Return a AST of the assigned value
+    // test case can be written once class modelling is in place using a assignment method of the class
     if (ctx.LOCAL_VARIABLE_IDENTIFIER() != null) {
       val localVar  = ctx.LOCAL_VARIABLE_IDENTIFIER()
       val varSymbol = localVar.getSymbol()
@@ -970,7 +972,7 @@ class AstCreator(
     methodNameAst ++ assignLinkedMethodAst
   }
 
-  def astForSingletonObjextContext(ctx: SingletonObjectContext): Seq[Ast] = {
+  def astForSingletonObjectContext(ctx: SingletonObjectContext): Seq[Ast] = {
     if (ctx.variableIdentifier() != null) {
       astForVariableIdentifierContext(ctx.variableIdentifier(), true)
     } else if (ctx.pseudoVariableIdentifier() != null) {
@@ -984,7 +986,7 @@ class AstCreator(
 
   def astForSingletonMethodNamePartContext(ctx: SingletonMethodNamePartContext): Seq[Ast] = {
     val definedMethodNameAst = astForDefinedMethodNameContext(ctx.definedMethodName())
-    val singletonObjAst      = astForSingletonObjextContext(ctx.singletonObject())
+    val singletonObjAst      = astForSingletonObjectContext(ctx.singletonObject())
     definedMethodNameAst ++ singletonObjAst
   }
 
