@@ -285,8 +285,8 @@ class AstCreator(
         .methodFullName(operatorName)
         .dispatchType(DispatchTypes.STATIC_DISPATCH)
         .typeFullName(Defines.Any)
-        .lineNumber(ctx.EQ().getSymbol().getLine())
-        .columnNumber(ctx.EQ().getSymbol().getCharPositionInLine())
+        .lineNumber(ctx.op.getLine())
+        .columnNumber(ctx.op.getCharPositionInLine())
 
       val packedRHS = getPackedRHS(rightAst)
       Seq(callAst(callNode, leftAst ++ packedRHS))
@@ -680,6 +680,7 @@ class AstCreator(
     if (ctx.EMARK() != null) {
       val invocWOParenAsts = astForInvocationWithoutParenthesesContext(ctx.invocationWithoutParentheses())
       val operatorName     = getOperatorName(ctx.EMARK().getSymbol)
+      // test case unknown
       val callNode = NewCall()
         .name(operatorName)
         .code(ctx.getText)
@@ -700,6 +701,7 @@ class AstCreator(
     case ctx: ChainedCommandDoBlockInvocationWithoutParenthesesContext =>
       astForChainedCommandWithDoBlockContext(ctx.chainedCommandWithDoBlock())
     case ctx: ChainedCommandDoBlockDorCol2mNameArgsInvocationWithoutParenthesesContext =>
+      // test case unknown
       val cmdDoBlockAst  = astForChainedCommandWithDoBlockContext(ctx.chainedCommandWithDoBlock())
       val methodNameAst  = astForMethodNameContext(ctx.methodName())
       val argsWOParenAst = astForArguments(ctx.argumentsWithoutParentheses().arguments())

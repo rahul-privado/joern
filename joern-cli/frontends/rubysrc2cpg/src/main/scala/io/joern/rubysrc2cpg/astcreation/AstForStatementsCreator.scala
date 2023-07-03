@@ -121,6 +121,7 @@ trait AstForStatementsCreator { this: AstCreator =>
     case ctx: NotExpressionOrCommandContext        => Seq(astForNotKeywordExpressionOrCommand(ctx))
     case ctx: OrAndExpressionOrCommandContext      => Seq(astForOrAndExpressionOrCommand(ctx))
     case ctx: ExpressionExpressionOrCommandContext => astForExpressionContext(ctx.expression())
+    case _                                         => Seq(Ast())
   }
 
   protected def astForNotKeywordExpressionOrCommand(ctx: NotExpressionOrCommandContext): Ast = {

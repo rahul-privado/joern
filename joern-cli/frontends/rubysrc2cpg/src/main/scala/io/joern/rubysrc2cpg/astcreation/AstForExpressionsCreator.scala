@@ -171,6 +171,7 @@ trait AstForExpressionsCreator { this: AstCreator =>
 
   // TODO: Rewrite this (and if expressions as a whole) to look similar to PHP's
   protected def astForElseClause(ctx: ElseClauseContext): Seq[Ast] = {
+    if (ctx == null) return Seq()
     val elseNode = NewJumpTarget()
       .name("default")
       .code(ctx.getText)
