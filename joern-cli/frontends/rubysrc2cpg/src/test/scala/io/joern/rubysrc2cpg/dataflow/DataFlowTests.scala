@@ -1487,5 +1487,31 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
         sink.reachableByFlows(source).size shouldBe 2
       }
     }
+
+    "Data flow through a global variable" should {
+      val cpg = code("""
+          |def foo(arg)
+          | loop do
+          | arg += 1
+          |  if arg > 3
+          |        $y = arg
+          |        return
+          |  end
+          | end
+          |end
+          |
+          |x = 1
+          |foo x
+          |puts $y
+          |
+          |
+          |""".stripMargin)
+
+      "find flows to the sink" in {
+        val source = cpg.identifier.name("x").l
+        val sink   = cpg.call.name("puts").l
+        sink.reachableByFlows(source).size shouldBe 2
+      }
+    }
   }
 }

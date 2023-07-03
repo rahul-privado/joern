@@ -784,6 +784,7 @@ class AstCreator(
     callNode.name(getActualMethodName(callNode.name))
 
     if (ctx.block() != null) {
+      // test case unknown
       val blockAst = astForBlockContext(ctx.block())
       Seq(callAst(callNode, parenAst ++ blockAst))
     } else {
@@ -793,6 +794,7 @@ class AstCreator(
 
   def astForJumpExpressionPrimaryContext(ctx: JumpExpressionPrimaryContext): Seq[Ast] = {
     if (ctx.jumpExpression().RETURN() != null) {
+      // failing test case for global variable usage will cover this
       val retNode = NewReturn()
         .code(ctx.getText)
         .lineNumber(ctx.jumpExpression().RETURN().getSymbol().getLine)
