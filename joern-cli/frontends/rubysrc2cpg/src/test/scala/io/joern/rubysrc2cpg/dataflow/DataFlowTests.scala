@@ -1530,5 +1530,23 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
         sink.reachableByFlows(source).size shouldBe 2
       }
     }
+
+    "Data flow through optional params" should {
+      val cpg = code("""
+          |def foo(*args)
+          |  return args
+          |end
+          |
+          |x = 1
+          |y = foo(x, "another param")
+          |puts y
+          |""".stripMargin)
+
+      "find flows to the sink" in {
+        val source = cpg.identifier.name("x").l
+        val sink   = cpg.call.name("puts").l
+        sink.reachableByFlows(source).size shouldBe 2
+      }
+    }
   }
 }
