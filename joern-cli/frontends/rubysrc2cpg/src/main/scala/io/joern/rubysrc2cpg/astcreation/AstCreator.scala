@@ -501,8 +501,10 @@ class AstCreator(
       })
       .toList
 
-    val stmtAsts = whenThenAstsList ++ Option(ctx.caseExpression().elseClause()).map(astForElseClause).getOrElse(Seq())
-    val block    = blockNode(ctx.caseExpression())
+    val stmtAsts = whenThenAstsList ++ Option(ctx.caseExpression().elseClause())
+      .map(ctx => astForCompoundStatement(ctx.compoundStatement()))
+      .getOrElse(Seq())
+    val block = blockNode(ctx.caseExpression())
     Seq(controlStructureAst(switchNode, conditionAst, Seq(Ast(block).withChildren(stmtAsts))))
   }
 
@@ -1115,7 +1117,7 @@ class AstCreator(
       .toSeq
 
     if (ctx.elseClause() != null) {
-      val elseClauseAsts = astForElseClause(ctx.elseClause())
+      val elseClauseAsts = astForCompoundStatement(ctx.elseClause().compoundStatement())
       mainBodyAsts ++ rescueAsts ++ elseClauseAsts
     } else {
       mainBodyAsts ++ rescueAsts
@@ -1542,7 +1544,7 @@ class AstCreator(
   def astForUnlessExpressionPrimaryContext(ctx: UnlessExpressionPrimaryContext): Seq[Ast] = {
     val conditionAsts = astForExpressionOrCommand(ctx.unlessExpression().expressionOrCommand())
     val thenAsts      = astForCompoundStatement(ctx.unlessExpression().thenClause().compoundStatement())
-    val elseAsts      = astForElseClause(ctx.unlessExpression().elseClause())
+    val elseAsts      = astForCompoundStatement(ctx.unlessExpression().elseClause().compoundStatement())
 
     // unless will be modelled as IF since there is no difference from a static analysis POV
     val unlessNode = NewControlStructure()

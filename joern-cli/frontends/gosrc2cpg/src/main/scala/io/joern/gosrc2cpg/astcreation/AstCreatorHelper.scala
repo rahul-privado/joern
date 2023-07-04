@@ -18,8 +18,8 @@ trait AstCreatorHelper { this: AstCreator =>
     val c     = shortenCode(code(json))
     val ln    = line(json)
     val cn    = column(json)
-    val lnEnd = None
-    val cnEnd = None
+    val lnEnd = lineEndNo(json)
+    val cnEnd = columnEndNo(json)
     val node  = nodeType(json)
     ParserNodeInfo(node, json, c, ln, cn, lnEnd, cnEnd)
   }
@@ -35,31 +35,10 @@ trait AstCreatorHelper { this: AstCreator =>
 
   protected def line(node: Value): Option[Integer] = Try(node(ParserKeys.NodeLineNo).num).toOption.map(_.toInt)
 
-  protected def column(node: Value): Option[Integer] = Try(node(ParserKeys.NodeLineNo).num).toOption.map(_.toInt)
+  protected def column(node: Value): Option[Integer] = Try(node(ParserKeys.NodeColNo).num).toOption.map(_.toInt)
 
-  def isImportDeclaration(genDecl: ParserNodeInfo) = {
-    Try(genDecl.json(ParserKeys.Specs).arr.map(createParserNodeInfo).exists(_.node == ImportSpec)).toOption
-      .getOrElse(false)
-  }
-  def astForImport(genDecl: ParserNodeInfo): Ast = {
-    genDecl.json(ParserKeys.Specs).arr.map(createParserNodeInfo).foreach { nodeInfo =>
-      nodeInfo.node match {
-        case ImportSpec =>
-          val basicLit       = createParserNodeInfo(nodeInfo.json(ParserKeys.Path))
-          val importedEntity = nodeInfo.json(ParserKeys.Path).obj(ParserKeys.Value).str
-          val importedAs =
-            Try(nodeInfo.json(ParserKeys.Name).obj(ParserKeys.Name).str).toOption.getOrElse(importedEntity)
-          val importedAsReplacement = if (importedEntity.equals(importedAs)) "" else s"$importedAs "
-          // This may be better way to add code for import node
-          val importNode =
-            newImportNode(s"import $importedAsReplacement$importedEntity", importedEntity, importedAs, basicLit)
-          // Adding import node directly because it is not a Ast Node
-          diffGraph.addNode(importNode)
-        case _ =>
-      }
-    }
-    // We add imports directly to the graph, so return empty Ast
-    Ast()
-  }
+  protected def lineEndNo(node: Value): Option[Integer] = Try(node(ParserKeys.NodeLineEndNo).num).toOption.map(_.toInt)
+
+  protected def columnEndNo(node: Value): Option[Integer] = Try(node(ParserKeys.NodeColEndNo).num).toOption.map(_.toInt)
 
 }

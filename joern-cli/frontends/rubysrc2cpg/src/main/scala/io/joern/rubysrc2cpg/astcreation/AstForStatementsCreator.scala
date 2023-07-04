@@ -20,24 +20,9 @@ trait AstForStatementsCreator { this: AstCreator =>
   }
 
   protected def astForUndefStatement(ctx: UndefStatementContext): Ast = {
-    val undefMethods =
-      ctx
-        .definedMethodNameOrSymbol()
-        .asScala
-        .flatMap(astForDefinedMethodNameOrSymbolContext)
-        .toSeq
-
-    val operatorName = RubyOperators.undef
-    val callNode = NewCall()
-      .name(operatorName)
-      .code(ctx.getText)
-      .methodFullName(operatorName)
-      .signature("")
-      .dispatchType(DispatchTypes.STATIC_DISPATCH)
-      .typeFullName(Defines.Any)
-      .lineNumber(ctx.UNDEF().getSymbol().getLine())
-      .columnNumber(ctx.UNDEF().getSymbol().getCharPositionInLine())
-    callAst(callNode, undefMethods)
+    val undefNames = ctx.definedMethodNameOrSymbol().asScala.flatMap(astForDefinedMethodNameOrSymbolContext).toSeq
+    val call       = callNode(ctx, ctx.getText, RubyOperators.undef, RubyOperators.undef, DispatchTypes.STATIC_DISPATCH)
+    callAst(call, undefNames)
   }
 
   protected def astForBeginStatement(ctx: BeginStatementContext): Ast = {
@@ -99,11 +84,14 @@ trait AstForStatementsCreator { this: AstCreator =>
     controlStructureAst(throwNode, rhs.headOption, lhs)
   }
 
-  protected def astForCompoundStatement(ctx: CompoundStatementContext): Seq[Ast] =
-    Option(ctx.statements()).map(astForStatements).getOrElse(Seq())
+  protected def astForCompoundStatement(ctx: CompoundStatementContext): Seq[Ast] = {
+    val stmtAsts = Option(ctx.statements()).map(astForStatements).getOrElse(Seq())
+    Seq(blockAst(blockNode(ctx), stmtAsts.toList))
+  }
 
-  protected def astForStatements(ctx: StatementsContext): Seq[Ast] =
+  protected def astForStatements(ctx: StatementsContext): Seq[Ast] = {
     Option(ctx.statement()).map(_.asScala).getOrElse(Seq()).flatMap(astForStatement).toSeq
+  }
 
   // TODO: return Ast instead of Seq[Ast].
   protected def astForStatement(ctx: StatementContext): Seq[Ast] = ctx match {
