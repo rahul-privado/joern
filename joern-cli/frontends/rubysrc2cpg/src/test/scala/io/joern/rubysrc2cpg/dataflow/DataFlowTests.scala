@@ -1532,7 +1532,7 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
       }
     }
 
-    "Data flow through optional params" should {
+    "Data flow through variable params" should {
       val cpg = code("""
           |def foo(*args)
           |  return args
