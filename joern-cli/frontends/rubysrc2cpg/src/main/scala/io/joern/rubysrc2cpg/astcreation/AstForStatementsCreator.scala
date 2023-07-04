@@ -90,7 +90,12 @@ trait AstForStatementsCreator { this: AstCreator =>
   }
 
   protected def astForStatements(ctx: StatementsContext): Seq[Ast] = {
-    Option(ctx.statement()).map(_.asScala).getOrElse(Seq()).flatMap(astForStatement).toSeq
+    Option(ctx) match {
+      case Some(ctx) =>
+        Option(ctx.statement()).map(_.asScala).getOrElse(Seq()).flatMap(astForStatement).toSeq
+      case None =>
+        Seq()
+    }
   }
 
   // TODO: return Ast instead of Seq[Ast].
