@@ -1473,23 +1473,15 @@ class AstCreator(
       case Some(value) =>
         value.nodes
           .map(node => {
-            if (node.isInstanceOf[NewIdentifier]) {
-              val identifierNode = node.asInstanceOf[NewIdentifier]
-              val param = NewMethodParameterIn()
-                .name(identifierNode.name)
-                .code(identifierNode.code)
-                .lineNumber(identifierNode.lineNumber)
-                .columnNumber(identifierNode.columnNumber)
-              Ast(param)
-            } else {
-              val callNode = node.asInstanceOf[NewCall]
-              val param = NewMethodParameterIn()
-                .name(callNode.name)
-                .code(callNode.code)
-                .lineNumber(callNode.lineNumber)
-                .columnNumber(callNode.columnNumber)
-              Ast(param)
-            }
+            // this is guaranteed to be picked up as an identifier since this is a parameter
+            val identifierNode = node.asInstanceOf[NewIdentifier]
+            val param = NewMethodParameterIn()
+              .name(identifierNode.name)
+              .code(identifierNode.code)
+              .lineNumber(identifierNode.lineNumber)
+              .columnNumber(identifierNode.columnNumber)
+            Ast(param)
+
           })
           .toSeq
       case None => Seq()
