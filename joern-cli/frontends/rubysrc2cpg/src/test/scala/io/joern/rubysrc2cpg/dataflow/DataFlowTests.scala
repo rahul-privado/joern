@@ -1115,7 +1115,7 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
     }
   }
 
-  "Data flow for begin/rescue with sink in function without begin" ignore {
+  "Data flow for begin/rescue with sink in function without begin" should {
     val cpg = code("""
         |def foo(arg)
         |  puts "in begin"
@@ -1140,7 +1140,7 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
     }
   }
 
-  "Data flow for begin/rescue with sink in function without begin and sink in rescue with exception" ignore {
+  "Data flow for begin/rescue with sink in function without begin and sink in rescue with exception" should {
     val cpg = code("""
         |def foo(arg)
         |  puts "in begin"
@@ -1163,7 +1163,7 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
     }
   }
 
-  "Data flow for begin/rescue with sink in function without begin and sink in catch-call rescue" ignore {
+  "Data flow for begin/rescue with sink in function without begin and sink in catch-call rescue" should {
     val cpg = code("""
         |def foo(arg)
         |  puts "in begin"

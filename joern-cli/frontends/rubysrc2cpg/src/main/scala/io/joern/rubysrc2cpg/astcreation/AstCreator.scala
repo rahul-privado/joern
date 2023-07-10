@@ -1134,6 +1134,7 @@ class AstCreator(
     /*
      * Convert the last statement to a return AST if it is not already a return AST.
      * If it is a return AST leave it untouched.
+     * TODO exclude if the last statement is a if-else or a begin-rescue block
      */
     val tryBodyAsts =
       if (addReturnNode && compoundStatementAsts.nonEmpty) {
