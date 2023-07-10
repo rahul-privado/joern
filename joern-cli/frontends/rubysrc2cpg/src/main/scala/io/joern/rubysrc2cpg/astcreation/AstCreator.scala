@@ -1128,7 +1128,7 @@ class AstCreator(
     val compoundStatementAsts = astForCompoundStatement(ctx.compoundStatement(), !addReturnNode)
 
     val elseClauseAsts = Option(ctx.elseClause()) match
-      case Some(ctx) => astForCompoundStatement(ctx.compoundStatement())
+      case Some(ctx) => astForCompoundStatement(ctx.compoundStatement(), false)
       case None      => Seq()
 
     /*
@@ -1142,26 +1142,29 @@ class AstCreator(
         compoundStatementAsts ++ elseClauseAsts
       }
 
-    // try block
-    val tryBodyAst = blockAst(blockNode(ctx), tryBodyAsts.toList)
+    Option(ctx.rescueClause()) match {
+      case Some(ctxRescue) =>
+        // try block
+        val tryBodyAst = blockAst(blockNode(ctx), tryBodyAsts.toList)
 
-    val finallyAst = Option(ctx.ensureClause()) match
-      case Some(ctx) => astForCompoundStatement(ctx.compoundStatement()).headOption
-      case None      => None
+        val finallyAst = Option(ctx.ensureClause()) match
+          case Some(ctx) => astForCompoundStatement(ctx.compoundStatement()).headOption
+          case None      => None
 
-    val catchAsts = ctx
-      .rescueClause()
-      .asScala
-      .map(astForRescueClauseContext)
-      .toSeq
+        val catchAsts = ctxRescue.asScala
+          .map(astForRescueClauseContext)
+          .toSeq
 
-    val tryNode = NewControlStructure()
-      .controlStructureType(ControlStructureTypes.TRY)
-      .code("try")
-      .lineNumber(line(ctx))
-      .columnNumber(column(ctx))
+        val tryNode = NewControlStructure()
+          .controlStructureType(ControlStructureTypes.TRY)
+          .code("try")
+          .lineNumber(line(ctx))
+          .columnNumber(column(ctx))
 
-    Seq(tryCatchAst(tryNode, tryBodyAst, catchAsts, finallyAst))
+        Seq(tryCatchAst(tryNode, tryBodyAst, catchAsts, finallyAst))
+      case None =>
+        tryBodyAsts
+    }
   }
 
   def astForMethodDefinitionContext(ctx: MethodDefinitionContext): Seq[Ast] = {
