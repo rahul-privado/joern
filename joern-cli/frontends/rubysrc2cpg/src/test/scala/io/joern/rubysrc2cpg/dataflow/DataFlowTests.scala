@@ -92,6 +92,28 @@ class DataFlowTests extends DataFlowCodeToCpgSuite {
     }
   }
 
+  "Implicit return in if-else block" ignore {
+    val cpg = code("""
+        |def foo(arg)
+        |if arg > 1
+        |        arg + 1
+        |else
+        |        arg + 10
+        |end
+        |end
+        |
+        |x = 1
+        |y = foo x
+        |puts y
+        |""".stripMargin)
+
+    "be found" in {
+      val src  = cpg.identifier.name("x").l
+      val sink = cpg.call.name("puts").l
+      sink.reachableByFlows(src).l.size shouldBe 2
+    }
+  }
+
   "Return via call w/o initialization" should {
     val cpg = code("""
         |def add(p)
