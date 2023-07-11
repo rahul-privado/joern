@@ -1127,44 +1127,43 @@ class AstCreator(
   def astForBodyStatementContext(ctx: BodyStatementContext, addReturnNode: Boolean = false): Seq[Ast] = {
     val compoundStatementAsts = astForCompoundStatement(ctx.compoundStatement(), !addReturnNode)
 
-    val elseClauseAsts = Option(ctx.elseClause()) match
-      case Some(ctx) => astForCompoundStatement(ctx.compoundStatement(), false)
-      case None      => Seq()
+    if (ctx.rescueClause().size > 0) {
+      val elseClauseAsts = Option(ctx.elseClause()) match
+        case Some(ctx) => astForCompoundStatement(ctx.compoundStatement(), false)
+        case None      => Seq()
 
-    /*
-     * Convert the last statement to a return AST if it is not already a return AST.
-     * If it is a return AST leave it untouched.
-     * TODO exclude if the last statement is a if-else or a begin-rescue block
-     */
-    val tryBodyAsts =
-      if (addReturnNode && compoundStatementAsts.nonEmpty) {
-        convertLastStmtToReturn(compoundStatementAsts, ctx.compoundStatement().statements()) ++ elseClauseAsts
-      } else {
-        compoundStatementAsts ++ elseClauseAsts
-      }
+      /*
+       * TODO Conversion of last statement to return AST is needed here
+       */
+      val tryBodyAsts = compoundStatementAsts ++ elseClauseAsts
+      val tryBodyAst  = blockAst(blockNode(ctx), tryBodyAsts.toList)
 
-    Option(ctx.rescueClause()) match {
-      case Some(ctxRescue) =>
-        // try block
-        val tryBodyAst = blockAst(blockNode(ctx), tryBodyAsts.toList)
+      val finallyAst = Option(ctx.ensureClause()) match
+        case Some(ctx) => astForCompoundStatement(ctx.compoundStatement()).headOption
+        case None      => None
 
-        val finallyAst = Option(ctx.ensureClause()) match
-          case Some(ctx) => astForCompoundStatement(ctx.compoundStatement()).headOption
-          case None      => None
+      val catchAsts = ctx
+        .rescueClause()
+        .asScala
+        .map(astForRescueClauseContext)
+        .toSeq
 
-        val catchAsts = ctxRescue.asScala
-          .map(astForRescueClauseContext)
-          .toSeq
+      val tryNode = NewControlStructure()
+        .controlStructureType(ControlStructureTypes.TRY)
+        .code("try")
+        .lineNumber(line(ctx))
+        .columnNumber(column(ctx))
 
-        val tryNode = NewControlStructure()
-          .controlStructureType(ControlStructureTypes.TRY)
-          .code("try")
-          .lineNumber(line(ctx))
-          .columnNumber(column(ctx))
-
-        Seq(tryCatchAst(tryNode, tryBodyAst, catchAsts, finallyAst))
-      case None =>
-        tryBodyAsts
+      Seq(tryCatchAst(tryNode, tryBodyAst, catchAsts, finallyAst))
+    } else if (addReturnNode && compoundStatementAsts.nonEmpty) {
+      /*
+       * Convert the last statement to a return AST if it is not already a return AST.
+       * If it is a return AST leave it untouched.
+       * TODO exclude if the last statement is a if-else
+       */
+      convertLastStmtToReturn(compoundStatementAsts, ctx.compoundStatement().statements())
+    } else {
+      compoundStatementAsts
     }
   }
 
