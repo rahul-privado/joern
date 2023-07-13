@@ -149,6 +149,9 @@ trait AstForStatementsCreator {
                   stAsts
                 case None =>
                   // this is a leaf block
+                  if (isMethodBody && stmtCounter == stmtCount) {
+                    processingLastMethodStatement = false
+                  }
                   Seq(lastStmtAsReturn(stCtx.getText, stAsts.head))
               }
             } else {
