@@ -92,7 +92,7 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
     }
   }
 
-  "Implicit return in if-else block" ignore {
+  "Implicit return in if-else block" should {
     val cpg = code("""
         |def foo(arg)
         |if arg > 1
