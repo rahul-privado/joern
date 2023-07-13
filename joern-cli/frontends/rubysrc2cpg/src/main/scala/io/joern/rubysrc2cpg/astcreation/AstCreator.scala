@@ -12,7 +12,7 @@ import io.shiftleft.codepropertygraph.generated.nodes.*
 import org.antlr.v4.runtime.tree.TerminalNode
 import org.antlr.v4.runtime.{CharStreams, CommonTokenStream, ParserRuleContext, Token}
 import org.slf4j.LoggerFactory
-import overflowdb.BatchedUpdate
+import overflowdb.{BatchedUpdate, NodeOrDetachedNode}
 
 import java.io.File as JFile
 import scala.collection.immutable.Seq
@@ -49,7 +49,7 @@ class AstCreator(
   protected val methodNameAsIdentifierStack = mutable.Stack[Ast]()
 
   protected val methodAliases = mutable.HashMap[String, String]()
-  protected val methodNames   = mutable.HashSet[String]()
+  protected val methodNames   = mutable.HashMap[String, String]()
 
   protected val methodNamesWithYield = mutable.HashSet[String]()
 
@@ -63,6 +63,8 @@ class AstCreator(
    * The appropriate name wrt the names of their actual methods is set later in them.
    */
   protected val UNRESOLVED_YIELD = "unresolved_yield"
+
+  protected val pathSep = "."
 
   protected val blockMethods = ListBuffer[Ast]()
 
@@ -119,9 +121,9 @@ class AstCreator(
     }
     scope.popScope()
 
-    val thisParam = NewMethodParameterIn()
-      .name("this")
-      .code("this")
+    val thisParam = parameterInNode(programCtx, "this", "this", 0, false, EvaluationStrategies.BY_VALUE).typeFullName(
+      classStack.reverse.mkString(pathSep)
+    )
     val thisParamAst = Ast(thisParam)
 
     val methodRetNode = NewMethodReturn()
@@ -783,9 +785,11 @@ class AstCreator(
     if (ctx.block() != null) {
       val blockAst = Seq(astForBlock(ctx.block()))
       Seq(callAst(callNode, parenAst ++ blockAst))
-    } else {
+    } else if (methodNames.contains(getActualMethodName(callNode.name))) {
+      val thisNode = identifierNode(ctx, "this", "this", classStack.reverse.mkString(pathSep))
+      Seq(callAst(callNode, parenAst, Some(Ast(thisNode))))
+    } else
       Seq(callAst(callNode, parenAst))
-    }
   }
 
   def astForJumpExpressionPrimaryContext(ctx: JumpExpressionPrimaryContext): Seq[Ast] = {
@@ -843,6 +847,7 @@ class AstCreator(
     val methodFullName = packageContext.packageTable
       .getMethodFullNameUsingName(packageStack.toList, name)
       .headOption match {
+      case None if methodNames.contains(name) => methodNames.get(name).get
       case None if isBuiltin(name)            => prefixAsBuiltin(name) // TODO: Probably not super precise
       case Some(externalDependencyResolution) => DynamicCallUnknownFullName
       case None                               => DynamicCallUnknownFullName
@@ -885,7 +890,7 @@ class AstCreator(
       .asInstanceOf[TerminalNode]
 
     val name           = ctx.getText
-    val methodFullName = classStack.reverse :+ name mkString ":"
+    val methodFullName = classStack.reverse :+ name mkString pathSep
 
     val callNode = NewCall()
       .name(name)
@@ -1101,7 +1106,7 @@ class AstCreator(
 
     // Create class initialization method to host all field initializers
     val classInitMethodAst = if (blockStmts.nonEmpty) {
-      val classInitFullName = (classStack.reverse :+ XDefines.StaticInitMethodName).mkString(":")
+      val classInitFullName = (classStack.reverse :+ XDefines.StaticInitMethodName).mkString(pathSep)
       val classInitMethod = methodNode(
         classCtx,
         XDefines.StaticInitMethodName,
@@ -1110,7 +1115,7 @@ class AstCreator(
         None,
         filename,
         Option(NodeTypes.TYPE_DECL),
-        Option(classStack.reverse.mkString(":"))
+        Option(classStack.reverse.mkString(pathSep))
       )
       val classInitBody = blockAst(blockNode(classCtx), blockStmts.toList)
       Seq(methodAst(classInitMethod, Seq.empty, classInitBody, methodReturnNode(classCtx, Defines.Any)))
@@ -1122,9 +1127,8 @@ class AstCreator(
   }
 
   def astForBodyStatementContext(ctx: BodyStatementContext, isMethodBody: Boolean = false): Seq[Ast] = {
-    val compoundStatementAsts = astForCompoundStatement(ctx.compoundStatement(), isMethodBody)
-
     if (ctx.rescueClause().size > 0) {
+      val compoundStatementAsts = astForCompoundStatement(ctx.compoundStatement())
       val elseClauseAsts = Option(ctx.elseClause()) match
         case Some(ctx) => astForCompoundStatement(ctx.compoundStatement(), false)
         case None      => Seq()
@@ -1153,7 +1157,7 @@ class AstCreator(
 
       Seq(tryCatchAst(tryNode, tryBodyAst, catchAsts, finallyAst))
     } else {
-      compoundStatementAsts
+      astForCompoundStatement(ctx.compoundStatement(), isMethodBody)
     }
   }
 
@@ -1175,7 +1179,7 @@ class AstCreator(
      * TODO Dave: ^ This seems like it needs a re-design, it is confusing
      */
 
-    val methodFullName = classStack.reverse :+ callNode.name mkString ":"
+    val methodFullName = classStack.reverse :+ callNode.name mkString pathSep
     val methodNode = NewMethod()
       .code(ctx.getText)
       .name(callNode.name)
@@ -1187,10 +1191,7 @@ class AstCreator(
     callNode.methodFullName(methodFullName)
 
     val classType = if (classStack.isEmpty) "Standalone" else classStack.top
-    val classPath = classStack.reverse.toList match {
-      case _ :: xs => xs.mkString(":") + ":"
-      case _       => ""
-    }
+    val classPath = classStack.reverse.toList.mkString(pathSep)
     packageContext.packageTable.addPackageMethod(packageContext.moduleName, callNode.name, classPath, classType)
 
     // process yield calls.
@@ -1203,7 +1204,7 @@ class AstCreator(
       .foreach(node => {
         val yieldCallNode  = node.asInstanceOf[NewCall]
         val name           = methodNode.name
-        val methodFullName = classStack.reverse :+ callNode.name mkString ":"
+        val methodFullName = classStack.reverse :+ callNode.name mkString pathSep
         yieldCallNode.name(name + YIELD_SUFFIX)
         yieldCallNode.methodFullName(methodFullName + YIELD_SUFFIX)
         methodNamesWithYield.add(methodNode.name)
@@ -1230,8 +1231,26 @@ class AstCreator(
      * TODO find out how they should be used. Need to do this iff it adds any value
      */
 
-    methodNames.add(methodNode.name)
+    methodNames.put(methodNode.name, methodFullName)
     val blockNode = NewBlock().typeFullName(Defines.Any)
+
+    /* Before creating ast, we traverse the method params and identifiers and link them*/
+    val identifiers =
+      astBody.flatMap(ast => ast.nodes.filter(_.isInstanceOf[NewIdentifier])).asInstanceOf[Seq[NewIdentifier]]
+
+    astMethodParamSeq
+      .flatMap(ast =>
+        ast.nodes
+          .filter(_.isInstanceOf[NewMethodParameterIn])
+          .asInstanceOf[Seq[NewMethodParameterIn]]
+      )
+      .foreach(paramNode => {
+        val linkIdentifiers = identifiers.filter(_.name == paramNode.name)
+        identifiers.foreach { identifier =>
+          diffGraph.addEdge(identifier, paramNode, EdgeTypes.REF)
+        }
+      })
+
     Seq(
       methodAst(
         methodNode,
@@ -1443,7 +1462,7 @@ class AstCreator(
     val astBody = astForStatements(ctxStmt)
     scope.popScope()
 
-    val methodFullName = classStack.reverse :+ blockMethodName mkString ":"
+    val methodFullName = classStack.reverse :+ blockMethodName mkString pathSep
     val methodNode = NewMethod()
       .code(ctxStmt.getText)
       .name(blockMethodName)
