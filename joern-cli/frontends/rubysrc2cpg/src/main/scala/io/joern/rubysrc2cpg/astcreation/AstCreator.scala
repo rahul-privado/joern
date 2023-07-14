@@ -115,7 +115,7 @@ class AstCreator(
     val statementCtx = programCtx.compoundStatement().statements()
     scope.pushNewScope(())
     val statementAsts = if (statementCtx != null) {
-      astForStatements(statementCtx) ++ blockMethods
+      astForStatements(statementCtx, false, false) ++ blockMethods
     } else {
       List[Ast](Ast())
     }
