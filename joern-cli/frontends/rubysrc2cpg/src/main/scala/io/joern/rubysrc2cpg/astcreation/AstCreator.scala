@@ -290,7 +290,7 @@ class AstCreator(
       .interpolatedStringSequence()
       .asScala
       .flatMap(inter => {
-        astForStatements(inter.compoundStatement().statements())
+        astForStatements(inter.compoundStatement().statements(), false, false)
       })
       .toSeq
 
@@ -1459,7 +1459,7 @@ class AstCreator(
 
     val astMethodParam = ctxParam.map(astForBlockParameterContext).getOrElse(Seq())
     scope.pushNewScope(())
-    val astBody = astForStatements(ctxStmt)
+    val astBody = astForStatements(ctxStmt, true)
     scope.popScope()
 
     val methodFullName = classStack.reverse :+ blockMethodName mkString pathSep

@@ -116,7 +116,11 @@ trait AstForStatementsCreator {
     }
   }
 
-  protected def astForStatements(ctx: StatementsContext, isMethodBody: Boolean = false): Seq[Ast] = {
+  protected def astForStatements(
+    ctx: StatementsContext,
+    isMethodBody: Boolean = false,
+    canConsiderAsLeaf: Boolean = true
+  ): Seq[Ast] = {
     Option(ctx) match {
       case Some(ctx) =>
         val stmtCount   = ctx.statement().size()
@@ -124,7 +128,9 @@ trait AstForStatementsCreator {
         val myBlockId   = blockIdCounter
         blockIdCounter += 1
         val parentBlockId = currentBlockId
-        blockChildHash.update(parentBlockId, myBlockId)
+        if (canConsiderAsLeaf) {
+          blockChildHash.update(parentBlockId, myBlockId)
+        }
         currentBlockId = myBlockId
 
         val stmtAsts = Option(ctx)
@@ -142,7 +148,7 @@ trait AstForStatementsCreator {
               }
             }
             val stAsts = astForStatement(stCtx)
-            if (processingLastMethodStatement) {
+            if (canConsiderAsLeaf && processingLastMethodStatement) {
               blockChildHash.get(myBlockId) match {
                 case Some(value) =>
                   // this is a non-leaf block
