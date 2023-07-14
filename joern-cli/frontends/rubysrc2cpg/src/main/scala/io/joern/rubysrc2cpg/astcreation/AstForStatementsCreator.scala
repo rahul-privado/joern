@@ -116,6 +116,16 @@ trait AstForStatementsCreator {
     }
   }
 
+  /*
+   * We will convert the last statement of the last leaf block in the hierarchy of blocks to a return
+   * isMethodBody => The statement set is the top level block in the method. i.e. the root block
+   * canConsiderAsLeaf => The statement set can be considered a leaf block. This is set to false by the caller when it is a statement
+   * set as a part of an expression. Eg. argument in string interpolation. We do not want to construct return nodes out of
+   * string interpolation arguments
+   * blockChildHash => Hash of a block id to any child. Absence of a block in this after all its statements have been processed implies
+   * that the block is a leaf
+   * blockIdCounter => A simple counter used to assign an id to each block.
+   */
   protected def astForStatements(
     ctx: StatementsContext,
     isMethodBody: Boolean = false,
@@ -139,7 +149,6 @@ trait AstForStatementsCreator {
           .getOrElse(Seq())
           .flatMap(stCtx => {
             stmtCounter += 1
-            val text = stCtx.getText
             if (isMethodBody) {
               if (stmtCounter == stmtCount) {
                 processingLastMethodStatement = true
