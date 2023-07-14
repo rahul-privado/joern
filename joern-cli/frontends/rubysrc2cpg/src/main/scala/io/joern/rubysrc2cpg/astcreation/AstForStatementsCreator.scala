@@ -106,8 +106,15 @@ trait AstForStatementsCreator {
     }
   }
 
-  protected def astForCompoundStatement(ctx: CompoundStatementContext, isMethodBody: Boolean = false, canConsiderAsLeaf: Boolean = true): Seq[Ast] = {
-    val stmtAsts = Option(ctx).map(_.statements()).map(st => { astForStatements(st, isMethodBody, canConsiderAsLeaf) }).getOrElse(Seq())
+  protected def astForCompoundStatement(
+    ctx: CompoundStatementContext,
+    isMethodBody: Boolean = false,
+    canConsiderAsLeaf: Boolean = true
+  ): Seq[Ast] = {
+    val stmtAsts = Option(ctx)
+      .map(_.statements())
+      .map(st => { astForStatements(st, isMethodBody, canConsiderAsLeaf) })
+      .getOrElse(Seq())
     if (isMethodBody) {
       stmtAsts
     } else {

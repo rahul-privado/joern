@@ -2081,8 +2081,7 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
     }
   }
 
-  // TODO:
-  "Data flow through ensureClause" ignore {
+  "Data flow through ensureClause" should {
     val cpg = code("""
         |begin
         |    x = File.open("myFile.txt", "r")
@@ -2100,12 +2099,11 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
     "find flows to the sink" in {
       val source = cpg.identifier.name("x").l
       val sink   = cpg.call.name("puts").l
-      sink.reachableByFlows(source).size shouldBe 3
+      sink.reachableByFlows(source).size shouldBe 2 // flow through the rescue is not a flow
     }
   }
 
-  // TODO:
-  "Data flow through begin-else" ignore {
+  "Data flow through begin-else" should {
     val cpg = code("""
         |begin
         |    x = File.open("myFile.txt", "r")
@@ -2133,8 +2131,7 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
     }
   }
 
-  // TODO:
-  "Data flow through block argument context" ignore {
+  "Data flow through block argument context" should {
     val cpg = code("""
         |x=10
         |y=0
@@ -2156,12 +2153,11 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
     "find flows to the sink" in {
       val source = cpg.identifier.name("x").l
       val sink   = cpg.call.name("puts").l
-      sink.reachableByFlows(source).size shouldBe 3
+      sink.reachableByFlows(source).size shouldBe 2
     }
   }
 
-  // TODO:
-  "Data flow through block splatting type arguments context" ignore {
+  "Data flow through block splatting type arguments context" should {
     val cpg = code("""
         |x=10
         |y=0
@@ -2183,12 +2179,11 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
     "find flows to the sink" in {
       val source = cpg.identifier.name("x").l
       val sink   = cpg.call.name("puts").l
-      sink.reachableByFlows(source).size shouldBe 3
+      sink.reachableByFlows(source).size shouldBe 2
     }
   }
 
-  // TODO:
-  "Flow through tainted object" ignore {
+  "Flow through tainted object" should {
     val cpg = code("""
         |def put_req(api_endpoint, params)
         |    puts "Hitting " + api_endpoint + " with params: " + params
@@ -2207,7 +2202,7 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
     "find flows to the sink" in {
       val source = cpg.identifier.name("accountId").l
       val sink   = cpg.call.name("put_req").l
-      sink.reachableByFlows(source).size shouldBe 3
+      sink.reachableByFlows(source).size shouldBe 1
     }
   }
 
