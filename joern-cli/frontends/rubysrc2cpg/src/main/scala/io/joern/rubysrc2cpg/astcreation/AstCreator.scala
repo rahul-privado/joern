@@ -325,7 +325,7 @@ class AstCreator(
     case ctx: ForExpressionPrimaryContext      => Seq(astForForExpression(ctx.forExpression()))
     case ctx: JumpExpressionPrimaryContext     => astForJumpExpressionPrimaryContext(ctx)
     case ctx: BeginExpressionPrimaryContext    => astForBeginExpressionPrimaryContext(ctx)
-    case ctx: GroupingExpressionPrimaryContext => astForCompoundStatement(ctx.compoundStatement())
+    case ctx: GroupingExpressionPrimaryContext => astForCompoundStatement(ctx.compoundStatement(), false, false)
     case ctx: VariableReferencePrimaryContext  => Seq(astForVariableReference(ctx.variableReference()))
     case ctx: SimpleScopedConstantReferencePrimaryContext =>
       astForSimpleScopedConstantReferencePrimaryContext(ctx)
@@ -1135,6 +1135,7 @@ class AstCreator(
 
       /*
        * TODO Conversion of last statement to return AST is needed here
+      * This can be done after the data flow engine issue with return from a try block is fixed
        */
       val tryBodyAsts = compoundStatementAsts ++ elseClauseAsts
       val tryBodyAst  = blockAst(blockNode(ctx), tryBodyAsts.toList)
