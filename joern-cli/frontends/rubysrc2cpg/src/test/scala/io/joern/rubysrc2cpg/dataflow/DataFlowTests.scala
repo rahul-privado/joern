@@ -1434,9 +1434,10 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
       val sink   = cpg.call.name("puts").l
       sink.reachableByFlows(source).size shouldBe 2
     }
+  }
 
-    "Data flow through primaryMethodArgsDoBlockCommandWithDoBlock" should {
-      val cpg = code("""
+  "Data flow through primaryMethodArgsDoBlockCommandWithDoBlock" should {
+    val cpg = code("""
           |module FooModule
           |def foo (blockArg,&block)
           |block.call(blockArg)
@@ -1450,15 +1451,15 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
           |end
           |""".stripMargin)
 
-      "find flows to the sink" in {
-        val source = cpg.identifier.name("x").l
-        val sink   = cpg.call.name("puts").l
-        sink.reachableByFlows(source).size shouldBe 2
-      }
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).size shouldBe 2
     }
+  }
 
-    "Data flow with super usage" should {
-      val cpg = code("""
+  "Data flow with super usage" should {
+    val cpg = code("""
           |class BaseClass
           |  def doSomething(arg)
           |    return arg + 10
@@ -1478,15 +1479,15 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
           |
           |""".stripMargin)
 
-      "find flows to the sink" in {
-        val source = cpg.identifier.name("x").l
-        val sink   = cpg.call.name("puts").l
-        sink.reachableByFlows(source).size shouldBe 2
-      }
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).size shouldBe 2
     }
+  }
 
-    "Data flow through blockExprAssocTypeArguments" should {
-      val cpg = code("""
+  "Data flow through blockExprAssocTypeArguments" should {
+    val cpg = code("""
           |def foo(*args)
           |puts args
           |end
@@ -1496,15 +1497,15 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
           |
           |""".stripMargin)
 
-      "find flows to the sink" in {
-        val source = cpg.identifier.name("x").l
-        val sink   = cpg.call.name("puts").l
-        sink.reachableByFlows(source).size shouldBe 2
-      }
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).size shouldBe 2
     }
+  }
 
-    "Data flow through blockSplattingTypeArguments" should {
-      val cpg = code("""
+  "Data flow through blockSplattingTypeArguments" should {
+    val cpg = code("""
           |def foo(arg)
           |puts arg
           |end
@@ -1514,15 +1515,15 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
           |
           |""".stripMargin)
 
-      "find flows to the sink" in {
-        val source = cpg.identifier.name("x").l
-        val sink   = cpg.call.name("puts").l
-        sink.reachableByFlows(source).size shouldBe 2
-      }
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).size shouldBe 2
     }
+  }
 
-    "Data flow through blockSplattingExprAssocTypeArguments without block" should {
-      val cpg = code("""
+  "Data flow through blockSplattingExprAssocTypeArguments without block" should {
+    val cpg = code("""
           |def foo(*arg)
           |puts arg
           |end
@@ -1532,15 +1533,15 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
           |
           |""".stripMargin)
 
-      "find flows to the sink" in {
-        val source = cpg.identifier.name("x").l
-        val sink   = cpg.call.name("puts").l
-        sink.reachableByFlows(source).size shouldBe 2
-      }
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).size shouldBe 2
     }
+  }
 
-    "Data flow through blockSplattingTypeArguments without block" should {
-      val cpg = code("""
+  "Data flow through blockSplattingTypeArguments without block" should {
+    val cpg = code("""
           |def foo (blockArg,&block)
           |block.call(blockArg)
           |end
@@ -1554,16 +1555,16 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
           |
           |""".stripMargin)
 
-      "find flows to the sink" in {
-        val source = cpg.identifier.name("x").l
-        val sink   = cpg.call.name("puts").l
-        sink.reachableByFlows(source).size shouldBe 2
-      }
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).size shouldBe 2
     }
+  }
 
-    // TODO:
-    "Data flow through blockExprAssocTypeArguments with block argument in the wrapper function" ignore {
-      val cpg = code("""
+  // TODO:
+  "Data flow through blockExprAssocTypeArguments with block argument in the wrapper function" ignore {
+    val cpg = code("""
           |def foo (blockArg,&block)
           |block.call(blockArg)
           |end
@@ -1582,15 +1583,15 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
           |
           |""".stripMargin)
 
-      "find flows to the sink" in {
-        val source = cpg.identifier.name("x").l
-        val sink   = cpg.call.name("puts").l
-        sink.reachableByFlows(source).size shouldBe 2
-      }
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).size shouldBe 2
     }
+  }
 
-    "Data flow through grouping expression with negation" should {
-      val cpg = code("""
+  "Data flow through grouping expression with negation" should {
+    val cpg = code("""
           |def foo(arg)
           |return arg
           |end
@@ -1601,15 +1602,15 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
           |
           |""".stripMargin)
 
-      "find flows to the sink" in {
-        val source = cpg.identifier.name("x").l
-        val sink   = cpg.call.name("puts").l
-        sink.reachableByFlows(source).size shouldBe 2
-      }
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).size shouldBe 2
     }
+  }
 
-    "Data flow through break with args" should {
-      val cpg = code("""
+  "Data flow through break with args" should {
+    val cpg = code("""
           |x = 1
           |arr = [x, 2, 3]
           |y = arr.each do |num|
@@ -1620,16 +1621,16 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
           |
           |""".stripMargin)
 
-      "find flows to the sink" in {
-        val source = cpg.identifier.name("x").l
-        val sink   = cpg.call.name("puts").l
-        sink.reachableByFlows(source).size shouldBe 4
-      }
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).size shouldBe 4
     }
+  }
 
-    // TODO:
-    "Data flow through next with args" ignore {
-      val cpg = code("""
+  // TODO:
+  "Data flow through next with args" ignore {
+    val cpg = code("""
           |x = 10
           |a = [1, 2, 3]
           |y = a.map do |num|
@@ -1641,16 +1642,16 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
           |
           |""".stripMargin)
 
-      "find flows to the sink" in {
-        val source = cpg.identifier.name("x").l
-        val sink   = cpg.call.name("puts").l
-        sink.reachableByFlows(source).size shouldBe 2
-      }
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).size shouldBe 2
     }
+  }
 
-    // TODO:
-    "Data flow through a global variable" ignore {
-      val cpg = code("""
+  // TODO:
+  "Data flow through a global variable" ignore {
+    val cpg = code("""
           |def foo(arg)
           | loop do
           | arg += 1
@@ -1668,15 +1669,15 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
           |
           |""".stripMargin)
 
-      "find flows to the sink" in {
-        val source = cpg.identifier.name("x").l
-        val sink   = cpg.call.name("puts").l
-        sink.reachableByFlows(source).size shouldBe 2
-      }
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).size shouldBe 2
     }
+  }
 
-    "Data flow using a keyword" should {
-      val cpg = code("""
+  "Data flow using a keyword" should {
+    val cpg = code("""
           |class MyClass
           |end
           |
@@ -1685,15 +1686,15 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
           |puts y
           |""".stripMargin)
 
-      "find flows to the sink" in {
-        val source = cpg.identifier.name("x").l
-        val sink   = cpg.call.name("puts").l
-        sink.reachableByFlows(source).size shouldBe 2
-      }
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).size shouldBe 2
     }
+  }
 
-    "Data flow through variable params" should {
-      val cpg = code("""
+  "Data flow through variable params" should {
+    val cpg = code("""
           |def foo(*args)
           |  return args
           |end
@@ -1703,15 +1704,15 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
           |puts y
           |""".stripMargin)
 
-      "find flows to the sink" in {
-        val source = cpg.identifier.name("x").l
-        val sink   = cpg.call.name("puts").l
-        sink.reachableByFlows(source).size shouldBe 2
-      }
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).size shouldBe 2
     }
+  }
 
-    "Data flow through optional params" should {
-      val cpg = code("""
+  "Data flow through optional params" should {
+    val cpg = code("""
           |def foo(arg=10)
           |  return arg + 10
           |end
@@ -1721,11 +1722,10 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
           |puts y
           |""".stripMargin)
 
-      "find flows to the sink" in {
-        val source = cpg.identifier.name("x").l
-        val sink   = cpg.call.name("puts").l
-        sink.reachableByFlows(source).size shouldBe 2
-      }
+    "find flows to the sink" in {
+      val source = cpg.identifier.name("x").l
+      val sink   = cpg.call.name("puts").l
+      sink.reachableByFlows(source).size shouldBe 2
     }
   }
 
