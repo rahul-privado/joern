@@ -134,7 +134,11 @@ class AstCreator(
         programCtx.compoundStatement() != null &&
         programCtx.compoundStatement().statements() != null
       ) {
-        astForStatements(programCtx.compoundStatement().statements(), false, false) ++ blockMethods //++ globalList.toList
+        astForStatements(
+          programCtx.compoundStatement().statements(),
+          false,
+          false
+        ) ++ blockMethods // ++ globalList.toList
       } else {
         logger.error(s"File $filename has no compound statement. Needs to be examined")
         List[Ast](Ast())
