@@ -1649,8 +1649,7 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
     }
   }
 
-  // TODO:
-  "Data flow through a global variable" ignore {
+  "Data flow through a global variable" should {
     val cpg = code("""
           |def foo(arg)
           | loop do

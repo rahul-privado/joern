@@ -6,7 +6,7 @@ import io.joern.x2cpg.Ast
 import io.shiftleft.codepropertygraph.generated.nodes.{NewFieldIdentifier, NewJumpTarget, NewLiteral, NewNode}
 import io.shiftleft.codepropertygraph.generated.{ControlStructureTypes, DispatchTypes, ModifierTypes, Operators}
 import org.antlr.v4.runtime.ParserRuleContext
-import io.joern.x2cpg.utils._
+
 import scala.collection.immutable.Set
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
@@ -241,8 +241,14 @@ trait AstForExpressionsCreator { this: AstCreator =>
      * 4. Otherwise default to identifier node creation since there is no reason (point 2) to create a call node
      */
 
-    val variableName      = ctx.getText
-    val isSelfFieldAccess = variableName.startsWith("@") || variableName.isAllUpperCase
+    val variableName = ctx.getText
+
+    val isGlobal = Option(ctx.GLOBAL_VARIABLE_IDENTIFIER()) match {
+      case Some(value) => true
+      case None        => false
+    }
+
+    val isSelfFieldAccess = variableName.startsWith("@")
     if (isSelfFieldAccess) {
       // Very basic field detection
       fieldReferences.updateWith(classStack.top) {
@@ -260,7 +266,7 @@ trait AstForExpressionsCreator { this: AstCreator =>
       lastModifier = Option(variableName.toUpperCase)
       Ast()
     } else {
-      val node = createIdentifierWithScope(ctx, variableName, variableName, Defines.Any, List())
+      val node = createIdentifierWithScope(ctx, variableName, variableName, Defines.Any, List(), isGlobal)
       Ast(node)
     }
   }
