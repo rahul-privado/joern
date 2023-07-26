@@ -338,8 +338,10 @@ trait AstForStatementsCreator {
     blockParamCtx: Option[BlockParameterContext],
     compoundStmtCtx: CompoundStatementContext
   ) = {
-    val blockNode_    = blockNode(ctx, ctx.getText, Defines.Any)
-    val blockBodyAst  = astForCompoundStatement(compoundStmtCtx)
+    val blockNode_ = blockNode(ctx, ctx.getText, Defines.Any)
+    scope.pushNewScope(())
+    val blockBodyAst = astForCompoundStatement(compoundStmtCtx)
+    scope.popScope()
     val blockParamAst = blockParamCtx.flatMap(astForBlockParameterContext)
     blockAst(blockNode_, blockBodyAst.toList ++ blockParamAst)
   }
