@@ -308,4 +308,29 @@ class MiscTests extends RubyCode2CpgFixture {
       cpg.namespace.name("SomeModule").size shouldBe 1
     }
   }
+
+  "CPG for code with method ending with = and no body" should {
+    val cpg = code("""
+        |module SomeModule
+        |def foo1
+        |    return unless true
+        |end
+        |def foo2=arg
+        |end
+        |end
+        |""".stripMargin)
+
+    "recognise all namespace nodes" in {
+      cpg.namespace.name("SomeModule").size shouldBe 1
+    }
+
+    "recognise all method nodes" in {
+      cpg.method.name("foo1").size shouldBe 1
+      cpg.method.name("foo2=").size shouldBe 1
+    }
+
+    "recognise all method param in nodes" in {
+      cpg.parameter.name("arg").size shouldBe 1
+    }
+  }
 }
