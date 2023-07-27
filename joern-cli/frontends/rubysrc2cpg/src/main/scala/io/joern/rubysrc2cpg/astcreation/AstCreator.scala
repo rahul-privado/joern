@@ -508,7 +508,18 @@ class AstCreator(
   }
 
   def astForArrayConstructorPrimaryContext(ctx: ArrayConstructorPrimaryContext): Seq[Ast] = {
-    astForIndexingArgumentsContext(ctx.arrayConstructor().indexingArguments())
+    if (ctx.getText == "[]") {
+      /* we might have an empty array, so create an empty as there would be no indexing args */
+      val arrayInitCallNode = NewCall()
+        .name(Operators.arrayInitializer)
+        .methodFullName(Operators.arrayInitializer)
+        .signature(Operators.arrayInitializer)
+        .typeFullName(Defines.Any)
+        .dispatchType(DispatchTypes.STATIC_DISPATCH)
+      Seq(callAst(arrayInitCallNode))
+    } else {
+      astForIndexingArgumentsContext(ctx.arrayConstructor().indexingArguments())
+    }
   }
 
   def astForBeginExpressionPrimaryContext(ctx: BeginExpressionPrimaryContext): Seq[Ast] = {
@@ -1598,8 +1609,11 @@ class AstCreator(
           val expr2Asts = astForExpressionContext(ctx.expression().get(0))
           Seq(expr1Ast) ++ expr2Asts
         case None =>
+          var expr2Asts = Seq(Ast())
           val expr1Asts = astForExpressionContext(ctx.expression().get(0))
-          val expr2Asts = astForExpressionContext(ctx.expression().get(1))
+          if (ctx.expression().size() > 1 && ctx.expression().get(1) != null) {
+            expr2Asts = astForExpressionContext(ctx.expression().get(1))
+          }
           expr1Asts ++ expr2Asts
       }
 
