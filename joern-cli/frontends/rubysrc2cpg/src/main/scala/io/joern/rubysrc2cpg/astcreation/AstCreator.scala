@@ -1332,7 +1332,6 @@ class AstCreator(
       .fullName(methodFullName)
       .columnNumber(callNode.columnNumber)
       .lineNumber(callNode.lineNumber)
-      .lineNumberEnd(ctx.END().getSymbol.getLine)
       .filename(filename)
 
     Option(ctx.END()) match
