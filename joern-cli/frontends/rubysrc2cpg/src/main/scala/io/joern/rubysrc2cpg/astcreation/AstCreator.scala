@@ -1304,8 +1304,10 @@ class AstCreator(
     scope.pushNewScope(())
     val astMethodParamSeq = astForMethodParameterPartContext(ctx.methodParameterPart())
     val astMethodName = Option(ctx.methodNamePart()) match
-      case Some(ctxMethodNamePart) => astForMethodNamePartContext(ctxMethodNamePart)
-      case None                    => astForMethodIdentifierContext(ctx.methodIdentifier(), ctx.getText)
+      case Some(ctxMethodNamePart) =>
+        astForMethodNamePartContext(ctxMethodNamePart)
+      case None =>
+        astForMethodIdentifierContext(ctx.methodIdentifier(), ctx.getText)
 
     val callNode = astMethodName.head.nodes.filter(node => node.isInstanceOf[NewCall]).head.asInstanceOf[NewCall]
     // there can be only one call node
@@ -1330,7 +1332,13 @@ class AstCreator(
       .fullName(methodFullName)
       .columnNumber(callNode.columnNumber)
       .lineNumber(callNode.lineNumber)
+      .lineNumberEnd(ctx.END().getSymbol.getLine)
       .filename(filename)
+
+    Option(ctx.END()) match
+      case Some(value) => methodNode.lineNumberEnd(value.getSymbol.getLine)
+      case None        =>
+
     callNode.methodFullName(methodFullName)
 
     val classType = if (classStack.isEmpty) "Standalone" else classStack.top
