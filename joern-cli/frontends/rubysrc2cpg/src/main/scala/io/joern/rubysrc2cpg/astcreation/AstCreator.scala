@@ -1311,9 +1311,12 @@ class AstCreator(
 
     val callNode = astMethodName.head.nodes.filter(node => node.isInstanceOf[NewCall]).head.asInstanceOf[NewCall]
     // there can be only one call node
-    val astBody = Option(ctx.bodyStatement()) match
+    val astBody = Option(ctx.bodyStatement()) match {
       case Some(ctxBodyStmt) => astForBodyStatementContext(ctxBodyStmt, true)
-      case None              => astForExpressionContext(ctx.expression())
+      case None =>
+        val expAst = astForExpressionContext(ctx.expression())
+        Seq(lastStmtAsReturn(ctx.expression().getText, expAst.head))
+    }
     scope.popScope()
 
     /*

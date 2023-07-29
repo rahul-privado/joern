@@ -1121,8 +1121,7 @@ class SimpleAstCreationPassTest extends RubyCode2CpgFixture {
   }
 
   "have correct structure endless method" in {
-    val cpg = code(
-      """
+    val cpg = code("""
         |def foo(a,b) = a*b
         |""".stripMargin)
 
