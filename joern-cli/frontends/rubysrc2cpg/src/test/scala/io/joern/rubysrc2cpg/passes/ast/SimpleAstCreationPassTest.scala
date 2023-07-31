@@ -1039,22 +1039,26 @@ class SimpleAstCreationPassTest extends RubyCode2CpgFixture {
     }
   }
 
-  "have correct structure when no RHS for a mandatory parameter is provided" ignore {
+  "have correct structure when no RHS for a mandatory parameter is provided" in {
     val cpg = code("""
         |def foo(bar:)
         |end
         |""".stripMargin)
 
-    cpg.method("foo").parameter.size shouldBe 1
+    val List(parameterNode) = cpg.method("foo").parameter.l
+    parameterNode.name shouldBe "bar"
+    parameterNode.lineNumber shouldBe Some(2)
   }
 
-  "have correct structure when RHS for a mandatory parameter is provided" ignore {
+  "have correct structure when RHS for a mandatory parameter is provided" in {
     val cpg = code("""
         |def foo(bar: world)
         |end
         |""".stripMargin)
 
-    cpg.method("foo").parameter.size shouldBe 1
+    val List(parameterNode) = cpg.method("foo").parameter.l
+    parameterNode.name shouldBe "bar"
+    parameterNode.lineNumber shouldBe Some(2)
   }
 
   // Change below test cases to focus on the argument of call `foo`
@@ -1120,6 +1124,27 @@ class SimpleAstCreationPassTest extends RubyCode2CpgFixture {
     callNode.columnNumber shouldBe Some(9)
   }
 
+  "method defined inside a class using << operator" in {
+    val cpg = code("""
+        class MyClass
+        |
+        |  class << self
+        |    def print
+        |      puts "log #{self}"
+        |    end
+        |  end
+        |  class << self
+        |  end
+        |end
+        |
+        |MyClass.print""".stripMargin)
+
+    val List(callNode) = cpg.call.name("print").l
+    callNode.lineNumber shouldBe Some(13)
+    callNode.columnNumber shouldBe Some(7)
+    callNode.name shouldBe "print"
+  }
+
   "have correct structure for body statements inside a do block" in {
     val cpg = code("""
         |def foo
@@ -1149,5 +1174,15 @@ class SimpleAstCreationPassTest extends RubyCode2CpgFixture {
     assocOperator.code shouldBe "id: /.*/"
     assocOperator.astChildren.code.l(1) shouldBe "/.*/"
     assocOperator.lineNumber shouldBe Some(4)
+  }
+
+  "have correct structure for a endless method" in {
+    val cpg = code("""
+        |def foo(a,b) = a*b
+        |""".stripMargin)
+
+    val List(methodNode) = cpg.method.name("foo").l
+    methodNode.lineNumber shouldBe Some(2)
+    methodNode.columnNumber shouldBe Some(4)
   }
 }

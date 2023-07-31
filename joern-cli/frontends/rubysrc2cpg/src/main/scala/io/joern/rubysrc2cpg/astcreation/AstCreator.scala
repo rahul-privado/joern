@@ -49,8 +49,9 @@ class AstCreator(
    */
   protected val methodNameAsIdentifierStack = mutable.Stack[Ast]()
 
-  protected val methodAliases      = mutable.HashMap[String, String]()
-  protected val methodNameToMethod = mutable.HashMap[String, nodes.NewMethod]()
+  protected val methodAliases       = mutable.HashMap[String, String]()
+  protected val methodNameToMethod  = mutable.HashMap[String, nodes.NewMethod]()
+  protected val methodDefInArgument = mutable.HashSet[Ast]()
 
   protected val methodNamesWithYield = mutable.HashSet[String]()
 
@@ -1109,6 +1110,7 @@ class AstCreator(
     if (ctx == null) return Seq()
     val localVarList = ListBuffer[Option[TerminalNode]]()
     // NOT differentiating between the productions here since either way we get parameters
+    // TODO: Add more information other than just parameter names
     val mandatoryParameters = ctx
       .parameter()
       .asScala
@@ -1129,11 +1131,19 @@ class AstCreator(
       .asScala
       .filter(ctx => Option(ctx.procParameter()).isDefined)
       .map(ctx => Option(ctx.procParameter().LOCAL_VARIABLE_IDENTIFIER()))
+    val keywordParameters = ctx
+      .parameter()
+      .asScala
+      .filter(ctx => Option(ctx.keywordParameter()).isDefined)
+      .map(ctx => {
+        Option(ctx.keywordParameter().LOCAL_VARIABLE_IDENTIFIER())
+      })
 
     localVarList.addAll(mandatoryParameters)
     localVarList.addAll(optionalParameters)
     localVarList.addAll(arrayParameter)
     localVarList.addAll(procParameter)
+    localVarList.addAll(keywordParameters)
 
     localVarList.map {
       case localVar @ Some(paramContext) => {
@@ -1301,10 +1311,20 @@ class AstCreator(
   def astForMethodDefinitionContext(ctx: MethodDefinitionContext): Seq[Ast] = {
     scope.pushNewScope(())
     val astMethodParamSeq = astForMethodParameterPartContext(ctx.methodParameterPart())
-    val astMethodName     = astForMethodNamePartContext(ctx.methodNamePart())
+    val astMethodName = Option(ctx.methodNamePart()) match
+      case Some(ctxMethodNamePart) =>
+        astForMethodNamePartContext(ctxMethodNamePart)
+      case None =>
+        astForMethodIdentifierContext(ctx.methodIdentifier(), ctx.getText)
+
     val callNode = astMethodName.head.nodes.filter(node => node.isInstanceOf[NewCall]).head.asInstanceOf[NewCall]
     // there can be only one call node
-    val astBody = astForBodyStatementContext(ctx.bodyStatement(), true)
+    val astBody = Option(ctx.bodyStatement()) match {
+      case Some(ctxBodyStmt) => astForBodyStatementContext(ctxBodyStmt, true)
+      case None =>
+        val expAst = astForExpressionContext(ctx.expression())
+        Seq(lastStmtAsReturn(ctx.expression().getText, expAst.head))
+    }
     scope.popScope()
 
     /*
@@ -1323,8 +1343,12 @@ class AstCreator(
       .fullName(methodFullName)
       .columnNumber(callNode.columnNumber)
       .lineNumber(callNode.lineNumber)
-      .lineNumberEnd(ctx.END().getSymbol.getLine)
       .filename(filename)
+
+    Option(ctx.END()) match
+      case Some(value) => methodNode.lineNumberEnd(value.getSymbol.getLine)
+      case None        =>
+
     callNode.methodFullName(methodFullName)
 
     val classType = if (classStack.isEmpty) "Standalone" else classStack.top
