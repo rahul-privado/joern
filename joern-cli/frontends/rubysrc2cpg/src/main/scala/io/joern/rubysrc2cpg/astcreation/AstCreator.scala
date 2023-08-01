@@ -696,11 +696,16 @@ class AstCreator(
         .filter(node => node.isInstanceOf[NewCall])
         .head
         .asInstanceOf[NewCall]
-      callNode
-        .code(ctx.getText)
-        .lineNumber(terminalNode.getSymbol().getLine())
-        .columnNumber(terminalNode.getSymbol().getCharPositionInLine())
-      Seq(callAst(callNode, argsAst, baseAst.headOption))
+
+      if (callNode.name == "call") {
+        baseAst
+      } else {
+        callNode
+          .code(ctx.getText)
+          .lineNumber(terminalNode.getSymbol().getLine())
+          .columnNumber(terminalNode.getSymbol().getCharPositionInLine())
+        Seq(callAst(callNode, argsAst, baseAst.headOption))
+      }
     }
   }
 
