@@ -697,8 +697,10 @@ class AstCreator(
         .head
         .asInstanceOf[NewCall]
 
-      if (callNode.name == "call") {
-        baseAst
+      if (callNode.name == "call" && ctx.primary().isInstanceOf[ProcDefinitionPrimaryContext]) {
+        // this is a proc.call
+        val baseCallNode = baseAst.head.nodes.head.asInstanceOf[NewCall]
+        Seq(callAst(baseCallNode, argsAst))
       } else {
         callNode
           .code(ctx.getText)
