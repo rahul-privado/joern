@@ -466,7 +466,9 @@ class AstCreator(
      */
     // Note: For parameters in the Proc definiton, an implicit parameter which goes by the name of `this` is added to the cpg
     val astMethodParam = astForParametersContext(ctx.parameters())
-    val astBody        = astForCompoundStatement(ctx.block.compoundStatement, true)
+    scope.pushNewScope(())
+    val astBody = astForCompoundStatement(ctx.block.compoundStatement, true)
+    scope.popScope()
 
     val procId = blockIdCounter
     blockIdCounter += 1
@@ -1603,7 +1605,9 @@ class AstCreator(
      */
 
     val astMethodParam = ctxParam.map(astForBlockParameterContext).getOrElse(Seq())
-    val astBody        = astForStatements(ctxStmt, true)
+    scope.pushNewScope(())
+    val astBody = astForStatements(ctxStmt, true)
+    scope.popScope()
 
     val methodFullName = classStack.reverse :+ blockMethodName mkString pathSep
     val methodNode = NewMethod()
