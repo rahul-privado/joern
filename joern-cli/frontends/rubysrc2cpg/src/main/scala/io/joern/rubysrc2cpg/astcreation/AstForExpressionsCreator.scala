@@ -112,9 +112,7 @@ trait AstForExpressionsCreator { this: AstCreator =>
     case ctx: NonExpandedQuotedRegularExpressionLiteralContext =>
       Seq(astForNonExpandedQuotedRegularExpressionLiteral(ctx))
     case _ =>
-      logger.error(
-        s"***************************************========> astForLiteralPrimaryExpression() ${filename}, Code: ${ctx.getText}"
-      )
+      logger.error(s"astForLiteralPrimaryExpression() $filename, ${ctx.getText} All contexts mismatched.")
       Seq()
   }
 

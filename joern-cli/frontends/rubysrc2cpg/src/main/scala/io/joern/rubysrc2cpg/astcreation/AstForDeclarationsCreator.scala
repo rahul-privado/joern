@@ -25,7 +25,7 @@ trait AstForDeclarationsCreator { this: AstCreator =>
       case ctx: AssociationArgumentContext       => astForAssociationContext(ctx.association)
       case ctx: CommandArgumentContext           => astForCommand(ctx.command)
       case _ =>
-        println(s"***************************************========> astForArgument() ${filename}, Code: ${ctx.getText}")
+        logger.error(s"astForArgument() $filename, ${ctx.getText} All contexts mismatched.")
         Seq()
     }
   }
