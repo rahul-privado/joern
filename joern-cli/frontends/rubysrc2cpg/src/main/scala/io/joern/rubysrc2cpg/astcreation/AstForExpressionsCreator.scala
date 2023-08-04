@@ -108,6 +108,11 @@ trait AstForExpressionsCreator { this: AstCreator =>
     case ctx: RegularExpressionLiteralContext => Seq(astForRegularExpressionLiteral(ctx))
     case ctx: NonExpandedQuotedRegularExpressionLiteralContext =>
       Seq(astForNonExpandedQuotedRegularExpressionLiteral(ctx))
+    case _ =>
+      println(
+        s"***************************************========> astForLiteralPrimaryExpression() ${filename}, Code: ${ctx.getText}"
+      )
+      Seq()
   }
 
   protected def astForSymbol(ctx: SymbolContext): Seq[Ast] = {

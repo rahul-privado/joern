@@ -21,6 +21,9 @@ trait AstForDeclarationsCreator { this: AstCreator =>
       case ctx: ExpressionArgumentContext        => astForExpressionContext(ctx.expression)
       case ctx: AssociationArgumentContext       => astForAssociationContext(ctx.association)
       case ctx: CommandArgumentContext           => astForCommand(ctx.command)
+      case _ =>
+        println(s"***************************************========> astForArgument() ${filename}, Code: ${ctx.getText}")
+        Seq()
     }
   }
 }
