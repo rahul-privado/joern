@@ -7,12 +7,15 @@ import io.joern.x2cpg.Ast
 import io.shiftleft.codepropertygraph.generated.nodes.{NewCall, NewFieldIdentifier, NewJumpTarget, NewLiteral, NewNode}
 import io.shiftleft.codepropertygraph.generated.{ControlStructureTypes, DispatchTypes, ModifierTypes, Operators}
 import org.antlr.v4.runtime.ParserRuleContext
-import io.joern.x2cpg.utils._
+import io.joern.x2cpg.utils.*
+import org.slf4j.LoggerFactory
+
 import scala.collection.immutable.Set
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 trait AstForExpressionsCreator { this: AstCreator =>
 
+  private val logger                         = LoggerFactory.getLogger(this.getClass)
   protected var lastModifier: Option[String] = None
 
   protected def astForPowerExpression(ctx: PowerExpressionContext): Ast =
@@ -109,7 +112,7 @@ trait AstForExpressionsCreator { this: AstCreator =>
     case ctx: NonExpandedQuotedRegularExpressionLiteralContext =>
       Seq(astForNonExpandedQuotedRegularExpressionLiteral(ctx))
     case _ =>
-      println(
+      logger.error(
         s"***************************************========> astForLiteralPrimaryExpression() ${filename}, Code: ${ctx.getText}"
       )
       Seq()
