@@ -494,8 +494,25 @@ class AstCreator(
     // Note: For parameters in the Proc definiton, an implicit parameter which goes by the name of `this` is added to the cpg
     val astMethodParam = astForParametersContext(ctx.parameters())
     scope.pushNewScope(())
-    val astBody = astForCompoundStatement(ctx.block.compoundStatement, true)
+    val astBody              = astForCompoundStatement(ctx.block.compoundStatement, true)
+    val procStackIdentifiers = scope.getVariables()
     scope.popScope()
+
+    val callerStackIdentifiers = scope.getVariables()
+
+    val callAsts = ListBuffer[Ast]()
+    procStackIdentifiers.foreach(dstVar => {
+      callerStackIdentifiers.find(callerVar => { callerVar.name == dstVar.name }) match
+        case Some(srcVar) => {
+          val callNode = NewCall()
+            .name(Operators.assignment)
+            .methodFullName(Operators.assignment)
+            .typeFullName(Defines.Any)
+            .dispatchType(DispatchTypes.STATIC_DISPATCH)
+            .code(ctx.getText)
+          callAsts.addOne(callAst(callNode, Seq(Ast(dstVar), Ast(srcVar))))
+        }
+    })
 
     val procId = blockIdCounter
     blockIdCounter += 1
@@ -517,7 +534,7 @@ class AstCreator(
     val methAst = methodAst(
       methodNode,
       astMethodParam,
-      blockAst(blockNode, astBody.toList),
+      blockAst(blockNode, callAsts.toList ++ astBody.toList),
       methodRetNode,
       Seq[NewModifier](publicModifier)
     )

@@ -2276,7 +2276,7 @@ class DataFlowTests extends RubyCode2CpgFixture(withPostProcessing = true, withD
     }
   }
 
-  "flow through a proc definition with non-empty block and zero parameters" ignore {
+  "flow through a proc definition with non-empty block and zero parameters" should {
     val cpg = code("""
         |x=10
         |y = x

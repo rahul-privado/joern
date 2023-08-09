@@ -42,4 +42,7 @@ class Scope[I, V, S] {
     }
   }
 
+  def getVariables(): List[V] = {
+    stack.head.variables.map(_._2).toList
+  }
 }
